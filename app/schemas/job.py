@@ -15,6 +15,7 @@ class JobStatusResponse(BaseModel):
     job_id: str
     status: JobStatus
     transcript: Optional[str] = None
+    detected_language: Optional[str] = None
     summary: Optional[str] = None
     error: Optional[str] = None
 

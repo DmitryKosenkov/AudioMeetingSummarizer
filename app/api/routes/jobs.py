@@ -21,7 +21,7 @@ from app.models.job import Job, JobStatus, create_job, get_job
 from app.schemas.job import JobCreateResponse, JobStatusResponse, SummaryResponse
 from app.services.pipeline import summarize_async
 from app.services.summarizer import SummarizationError, Summarizer
-from app.services.transcriber import Transcriber
+from app.services.transcriber import LanguageDetected, Transcriber
 from app.utils.sse import sse_event
 from app.utils.streaming import StreamEventKind, stream_from_blocking_generator
 
@@ -66,6 +66,7 @@ async def get_job_status(job_id: str):
         job_id=job.id,
         status=job.status,
         transcript=job.transcript,
+        detected_language=job.detected_language,
         summary=job.summary,
         error=job.error,
     )
@@ -102,9 +103,13 @@ async def stream_transcript(
                 break
 
             if kind is StreamEventKind.ITEM:
-                segment_text = cast(str, payload)
-                transcript_pieces.append(segment_text)
-                yield sse_event("segment", segment_text)
+                if isinstance(payload, LanguageDetected):
+                    job.detected_language = payload.language
+                    yield sse_event("language", payload.language)
+                else:
+                    segment_text = cast(str, payload)
+                    transcript_pieces.append(segment_text)
+                    yield sse_event("segment", segment_text)
 
             elif kind is StreamEventKind.DONE:
                 full_transcript = " ".join(transcript_pieces).strip()
@@ -143,8 +148,9 @@ async def summarize_transcript(job_id: str, summarizer: Summarizer = Depends(get
         )
 
     job.status = JobStatus.SUMMARIZING
+    language = job.detected_language or "en"
     try:
-        summary = await summarize_async(job.transcript, summarizer)
+        summary = await summarize_async(job.transcript, language, summarizer)
     except SummarizationError as error:
         job.status = JobStatus.ERROR
         job.error = str(error)

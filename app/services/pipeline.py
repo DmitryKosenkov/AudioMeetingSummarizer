@@ -6,10 +6,10 @@ import asyncio
 from app.services.summarizer import Summarizer
 
 
-def summarize(text: str, summarizer: Summarizer) -> str:
-    return summarizer.summarize(text)
+def summarize(text: str, language: str, summarizer: Summarizer) -> str:
+    return summarizer.summarize(text, language)
 
 
-async def summarize_async(text: str, summarizer: Summarizer) -> str:
+async def summarize_async(text: str, language: str, summarizer: Summarizer) -> str:
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, summarize, text, summarizer)
+    return await loop.run_in_executor(None, summarize, text, language, summarizer)
