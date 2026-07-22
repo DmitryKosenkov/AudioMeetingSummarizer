@@ -1,0 +1,10 @@
+target-version = "py312"
+line-length = 120
+
+[lint]
+# Defaults (pyflakes + a slice of pycodestyle) are enough for now - no
+# opinionated extras like import-sorting, to keep initial CI signal low-noise.
+
+[lint.per-file-ignores]
+# The prompt template is prose, not code - long lines there are fine.
+"app/services/prompts.py" = ["E501"]

@@ -29,7 +29,6 @@ async def lifespan(app: FastAPI):
     app.state.summarizer = GeminiSummarizer(
         api_key=settings.gemini_api_key,
         model=settings.gemini_model,
-        language=settings.whisper_language,
         max_attempts=settings.gemini_max_attempts,
         retry_delay_seconds=settings.gemini_retry_delay_seconds,
     )

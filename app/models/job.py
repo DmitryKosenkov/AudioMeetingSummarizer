@@ -25,6 +25,7 @@ class Job:
     audio_path: str
     status: JobStatus = JobStatus.QUEUED
     transcript: Optional[str] = None
+    detected_language: Optional[str] = None
     summary: Optional[str] = None
     error: Optional[str] = None
 

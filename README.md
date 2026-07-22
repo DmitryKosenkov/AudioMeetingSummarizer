@@ -1,5 +1,6 @@
 # Audio Meeting Summarizer
 
+
 A FastAPI backend that turns an uploaded meeting recording into a clean
 transcript and a structured summary — delivered as a `.txt` and a `.docx`
 file. The transcript streams to the client live, segment by segment, as
@@ -14,6 +15,7 @@ Google Gemini.
 - Accepts audio uploads (`.mp3`, `.wav`, `.ogg`, `.m4a`, `.flac`, `.webm`,
   `.opus`, `.aac`)
 - Local, offline transcription
+- Automatic language detection by default (or force one via `WHISPER_LANGUAGE`)
 - Transcript streams to the client via Server-Sent Events (SSE) as
   faster-whisper produces each segment
 - Structured meeting summary (Overview, Key Discussion Points, Decisions
@@ -49,7 +51,7 @@ happens once. Interactive API docs: `http://localhost:8000/docs`.
 |--------|--------------------------------------|------------------------------------------------------|
 | POST   | `/api/jobs`                         | Upload an audio file, returns a `job_id`               |
 | GET    | `/api/jobs/{job_id}`                | Get current job status/transcript/summary              |
-| GET    | `/api/jobs/{job_id}/stream`         | SSE stream of transcript segments                       |
+| GET    | `/api/jobs/{job_id}/stream`         | SSE stream: detected/used language, then transcript segments |
 | POST   | `/api/jobs/{job_id}/summarize`      | Generate the summary from the finished transcript        |
 | GET    | `/api/jobs/{job_id}/download/txt`   | Download the transcript                                  |
 | GET    | `/api/jobs/{job_id}/download/docx`  | Download the summary                                     |
@@ -68,7 +70,7 @@ Read from environment variables (see `.env.example`):
 |------------------------------|--------------------------|-------------------------------------------|
 | `GEMINI_API_KEY`            | -                        | Gemini API key                            |
 | `WHISPER_MODEL_SIZE`        | `large-v3-turbo`         | faster-whisper model size                 |
-| `WHISPER_LANGUAGE`          | `ru`                     | Language for transcription and summary    |
+| `WHISPER_LANGUAGE`          | *(auto-detect)*         | Force a language (e.g. `ru`, `en`) instead of auto-detecting |
 | `GEMINI_MODEL`              | `gemini-3.1-flash-lite`  | Gemini model used for summarization       |
 | `GEMINI_MAX_ATTEMPTS`       | `3`                      | Retry attempts on transient errors        |
 | `GEMINI_RETRY_DELAY_SECONDS`| `5`                      | Base delay between retries                |
@@ -137,9 +139,12 @@ wouldn't require touching the routes.
 
 The Gemini prompt (`app/services/prompts.py`) asks for a structured
 Markdown summary — Overview, Key Discussion Points, Decisions Made, Action
-Items, Next Steps — generated in whatever language `WHISPER_LANGUAGE` is
-set to, via a code-to-name lookup so Gemini gets an unambiguous
-instruction like "Russian" rather than the raw code `ru`.
+Items, Next Steps — generated in whichever language was used for that
+job: either the one forced via `WHISPER_LANGUAGE`, or the one
+faster-whisper auto-detected, stored on the job as `detected_language`
+and passed into `summarize()` at call time. A code-to-name lookup
+(`LANGUAGE_NAMES`) turns that code into an unambiguous instruction for
+Gemini, e.g. "Russian" rather than the raw code `ru`.
 
 `docx_export` and `txt_export` convert those results into real files: real
 headings/bullets/bold for the summary, plain UTF-8 for the transcript.
@@ -160,3 +165,24 @@ from app.exporters.txt_export import render_transcript_to_txt
 ## License
 
 [MIT](LICENSE)
+
+## CI/CD
+
+Every push and pull request against `main` runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+lint (`ruff`) then the test suite (`pytest`, in [`tests/`](tests/)) against
+a `TestClient`, with the real Whisper/Gemini dependencies swapped for
+fakes via FastAPI's `dependency_overrides` - no model download or API key
+needed to run CI.
+
+**Workflow:** feature branches (`feature/xyz`) -> PR into `main` -> CI
+must pass -> squash-merge -> auto-deploy. `main` is protected:
+- PRs required before merging
+- CI status check required to pass
+- Branch must be up to date before merging
+
+Run the same checks locally before pushing:
+```bash
+pip install -r requirements-dev.txt
+ruff check .
+pytest -v
+```

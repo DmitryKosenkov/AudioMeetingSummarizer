@@ -22,7 +22,7 @@ class Summarizer(ABC):
     """Turns a block of text into a short summary."""
 
     @abstractmethod
-    def summarize(self, text: str) -> str:
+    def summarize(self, text: str, language: str) -> str:
         raise NotImplementedError
 
 
@@ -33,18 +33,16 @@ class GeminiSummarizer(Summarizer):
         self,
         api_key: str,
         model: str = "gemini-3.1-flash-lite",
-        language: str = "ru",
         max_attempts: int = 3,
         retry_delay_seconds: float = 5.0,
     ):
         self.client = genai.Client(api_key=api_key)
         self.model = model
-        self.language = language
         self.max_attempts = max_attempts
         self.retry_delay_seconds = retry_delay_seconds
 
-    def summarize(self, text: str) -> str:
-        prompt = build_meeting_summary_prompt(text, self.language)
+    def summarize(self, text: str, language: str) -> str:
+        prompt = build_meeting_summary_prompt(text, language)
         response = self._generate_with_retry(prompt)
 
         if not response.text:
