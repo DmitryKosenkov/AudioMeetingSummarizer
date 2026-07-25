@@ -36,12 +36,9 @@ class Transcriber(ABC):
 class WhisperTranscriber(Transcriber):
     """Local speech-to-text using faster-whisper."""
 
-    def __init__(self, model_size: str = "large-v3-turbo", language: str = ""):
+    def __init__(self, model_size: str = "small", language: str = ""):
         logger.info("Loading Whisper model '%s'...", model_size)
         self.model = WhisperModel(model_size, device="cpu", compute_type="int8")
-        # Empty/unset means "not configured": None tells faster-whisper to
-        # auto-detect the spoken language from the first ~30s of audio,
-        # instead of assuming a fixed one.
         self.language = language or None
         logger.info("Whisper model loaded.")
 
