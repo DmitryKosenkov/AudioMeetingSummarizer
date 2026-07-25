@@ -1,6 +1,4 @@
 """Pydantic response models for the job endpoints."""
-from typing import Optional
-
 from pydantic import BaseModel
 
 from app.models.job import JobStatus
@@ -14,10 +12,10 @@ class JobCreateResponse(BaseModel):
 class JobStatusResponse(BaseModel):
     job_id: str
     status: JobStatus
-    transcript: Optional[str] = None
-    detected_language: Optional[str] = None
-    summary: Optional[str] = None
-    error: Optional[str] = None
+    transcript: str | None = None
+    detected_language: str | None = None
+    summary: str | None = None
+    error: str | None = None
 
 
 class SummaryResponse(BaseModel):

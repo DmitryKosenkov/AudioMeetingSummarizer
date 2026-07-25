@@ -3,8 +3,8 @@ depend on faster-whisper specifically.
 """
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Iterator, Union
 
 from faster_whisper import WhisperModel
 
@@ -29,14 +29,14 @@ class Transcriber(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def transcribe_stream(self, audio_path: str) -> Iterator[Union[LanguageDetected, str]]:
+    def transcribe_stream(self, audio_path: str) -> Iterator[LanguageDetected | str]:
         raise NotImplementedError
 
 
 class WhisperTranscriber(Transcriber):
     """Local speech-to-text using faster-whisper."""
 
-    def __init__(self, model_size: str = "small", language: str = ""):
+    def __init__(self, model_size: str = "large-v3-turbo", language: str = ""):
         logger.info("Loading Whisper model '%s'...", model_size)
         self.model = WhisperModel(model_size, device="cpu", compute_type="int8")
         self.language = language or None
@@ -48,7 +48,7 @@ class WhisperTranscriber(Transcriber):
         ]
         return " ".join(segments).strip()
 
-    def transcribe_stream(self, audio_path: str) -> Iterator[Union[LanguageDetected, str]]:
+    def transcribe_stream(self, audio_path: str) -> Iterator[LanguageDetected | str]:
         try:
             segments, info = self.model.transcribe(
                 audio_path, language=self.language, beam_size=5

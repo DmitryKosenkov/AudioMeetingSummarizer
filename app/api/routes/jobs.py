@@ -5,6 +5,7 @@
     3. POST   /api/jobs/{job_id}/summarize  summarize the transcript
     4. GET    /api/jobs/{job_id}/download/txt|docx
 """
+import asyncio
 import logging
 import os
 import uuid
@@ -52,8 +53,12 @@ async def upload_audio(file: UploadFile):
     saved_path = os.path.join(settings.downloads_dir, f"{uuid.uuid4()}{file_extension}")
 
     file_bytes = await file.read()
-    with open(saved_path, "wb") as saved_file:
-        saved_file.write(file_bytes)
+
+    def _write_to_disk() -> None:
+        with open(saved_path, "wb") as saved_file:
+            saved_file.write(file_bytes)
+
+    await asyncio.to_thread(_write_to_disk)
 
     job = create_job(filename=file.filename or "audio", audio_path=saved_path)
     return JobCreateResponse(job_id=job.id, status=job.status)

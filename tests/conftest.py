@@ -7,7 +7,7 @@ FastAPI's dependency_overrides, using tiny fake implementations of the
 same Transcriber/Summarizer interfaces the app already depends on. This
 is the whole reason those interfaces exist as abstract classes.
 """
-from typing import Iterator, Union
+from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
@@ -30,12 +30,11 @@ class FakeTranscriber(Transcriber):
     def transcribe(self, audio_path: str) -> str:
         return " ".join(self.segments)
 
-    def transcribe_stream(self, audio_path: str) -> Iterator[Union[LanguageDetected, str]]:
+    def transcribe_stream(self, audio_path: str) -> Iterator[LanguageDetected | str]:
         if self.raise_error:
             raise RuntimeError("simulated transcription failure")
         yield LanguageDetected(self.language)
-        for segment in self.segments:
-            yield segment
+        yield from self.segments
 
 
 class FakeSummarizer(Summarizer):
