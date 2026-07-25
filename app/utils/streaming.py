@@ -7,8 +7,9 @@ asyncio.Queue, which is then drained here.
 """
 import asyncio
 import threading
+from collections.abc import AsyncIterator, Callable, Iterator
 from enum import Enum
-from typing import Any, AsyncIterator, Callable, Iterator, Tuple
+from typing import Any
 
 
 class StreamEventKind(str, Enum):
@@ -19,7 +20,7 @@ class StreamEventKind(str, Enum):
 
 async def stream_from_blocking_generator(
     make_generator: Callable[[], Iterator[Any]],
-) -> AsyncIterator[Tuple[StreamEventKind, Any]]:
+) -> AsyncIterator[tuple[StreamEventKind, Any]]:
     """Run a blocking generator on a background thread and yield its items
     as (StreamEventKind, payload) tuples: ITEM per item, then a final DONE
     or ERROR.

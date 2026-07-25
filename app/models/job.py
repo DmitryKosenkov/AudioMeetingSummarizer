@@ -6,7 +6,6 @@ import threading
 import uuid
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 
 class JobStatus(str, Enum):
@@ -24,10 +23,10 @@ class Job:
     filename: str
     audio_path: str
     status: JobStatus = JobStatus.QUEUED
-    transcript: Optional[str] = None
-    detected_language: Optional[str] = None
-    summary: Optional[str] = None
-    error: Optional[str] = None
+    transcript: str | None = None
+    detected_language: str | None = None
+    summary: str | None = None
+    error: str | None = None
 
 
 _jobs: dict[str, Job] = {}
@@ -41,6 +40,6 @@ def create_job(filename: str, audio_path: str) -> Job:
     return job
 
 
-def get_job(job_id: str) -> Optional[Job]:
+def get_job(job_id: str) -> Job | None:
     with _lock:
         return _jobs.get(job_id)

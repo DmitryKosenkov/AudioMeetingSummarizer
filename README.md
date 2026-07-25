@@ -67,14 +67,14 @@ curl -X POST http://localhost:8000/api/jobs/$job_id/summarize
 Read from environment variables (see `.env.example`):
 
 | Variable                    | Default                 | Description                             |
-|------------------------------|--------------------------|-------------------------------------------|
-| `GEMINI_API_KEY`            | -                        | Gemini API key                            |
-| `WHISPER_MODEL_SIZE`        | `large-v3-turbo`         | faster-whisper model size                 |
+|------------------------------|-------------------------|-------------------------------------------|
+| `GEMINI_API_KEY`            | -                       | Gemini API key                            |
+| `WHISPER_MODEL_SIZE`        | `small`                 | faster-whisper model size                 |
 | `WHISPER_LANGUAGE`          | *(auto-detect)*         | Force a language (e.g. `ru`, `en`) instead of auto-detecting |
-| `GEMINI_MODEL`              | `gemini-3.1-flash-lite`  | Gemini model used for summarization       |
-| `GEMINI_MAX_ATTEMPTS`       | `3`                      | Retry attempts on transient errors        |
-| `GEMINI_RETRY_DELAY_SECONDS`| `5`                      | Base delay between retries                |
-| `DOWNLOADS_DIR`             | `downloads`              | Local directory for uploaded audio        |
+| `GEMINI_MODEL`              | `gemini-3.1-flash-lite` | Gemini model used for summarization       |
+| `GEMINI_MAX_ATTEMPTS`       | `3`                     | Retry attempts on transient errors        |
+| `GEMINI_RETRY_DELAY_SECONDS`| `5`                     | Base delay between retries                |
+| `DOWNLOADS_DIR`             | `downloads`             | Local directory for uploaded audio        |
 
 ## Project layout
 
