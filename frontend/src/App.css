@@ -1,0 +1,68 @@
+.container {
+  max-width: 640px;
+  margin: 40px auto;
+  padding: 0 16px;
+  font-family: system-ui, sans-serif;
+  color: #1a1a1a;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin-bottom: 24px;
+}
+
+.panel {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+button {
+  padding: 8px 16px;
+  margin-top: 8px;
+  margin-right: 8px;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #1a1a1a;
+  color: #fff;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button-link {
+  display: inline-block;
+  margin-top: 12px;
+  margin-right: 8px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid #333;
+  color: #1a1a1a;
+  text-decoration: none;
+}
+
+.text-block {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.status {
+  font-style: italic;
+  color: #555;
+}
+
+.error {
+  color: #b00020;
+  font-weight: 500;
+}
+
+.meta {
+  color: #555;
+  font-size: 0.9rem;
+}
