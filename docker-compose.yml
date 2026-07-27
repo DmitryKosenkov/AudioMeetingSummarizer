@@ -1,0 +1,25 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      args:
+        WHISPER_MODEL_SIZE: ${WHISPER_MODEL_SIZE:-small}
+    env_file:
+      - ./backend/.env
+    environment:
+      - RELOAD=false
+    volumes:
+      - downloads:/dockerapp/downloads
+    expose:
+      - "8000"
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  downloads:

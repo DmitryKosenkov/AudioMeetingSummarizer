@@ -17,14 +17,16 @@ then generate an AI summary (Gemini) — with transcript/summary downloads.
 │   └── Dockerfile
 │
 ├── frontend/            React + Vite SPA
-    ├── src/
-    │   ├── App.jsx                Upload -> stream -> summarize -> download
-    │   └── main.jsx
-    ├── vite.config.js             Dev proxy: /api -> localhost:8000
-    ├── nginx.conf                 Prod proxy: /api -> backend container
-    └── Dockerfile
-
+│   ├── src/
+│   │   ├── App.jsx                Upload -> stream -> summarize -> download
+│   │   └── main.jsx
+│   ├── vite.config.js             Dev proxy: /api -> localhost:8000
+│   ├── nginx.conf                 Prod proxy: /api -> backend container
+│   └── Dockerfile
+│
+└── docker-compose.yml    Runs both services together
 ```
+
 
 The frontend never talks to a hardcoded backend host. In dev, Vite proxies
 `/api/*` to the FastAPI server. In prod (Docker), nginx does the same thing,
@@ -37,7 +39,7 @@ Server-Sent Events (`GET /api/jobs/{id}/stream`) → summarize
 (`POST /api/jobs/{id}/summarize`) → download transcript/summary
 (`GET /api/jobs/{id}/download/txt|docx`).
 
-## Run locally (two terminals)
+## Option A: run locally (two terminals)
 
 **Backend**
 ```bash
@@ -56,3 +58,14 @@ npm install
 npm run dev
 ```
 Runs on `http://localhost:5173` and proxies API calls to the backend above.
+
+## Option B: run with Docker Compose
+
+```bash
+cp backend/.env.example backend/.env   # add your GEMINI_API_KEY
+docker compose up --build
+```
+Frontend (served by nginx, proxying to the backend container) is available
+at `http://localhost:8080`. The backend isn't exposed to the host directly —
+the frontend container is the only entry point, mirroring how you'd deploy
+this behind a single reverse proxy in production.
