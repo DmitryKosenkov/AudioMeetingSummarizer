@@ -1,19 +1,18 @@
-__pycache__/
-*.pyc
-*.pyo
-.venv/
-venv/
-env/
+# --- backend (Python) ---
+backend/.venv/
+backend/downloads/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.env
+backend/*.pyc
+backend/.pytest_cache/
 
-.env
+# --- frontend (Node) ---
+frontend/node_modules/
+frontend/dist/
+frontend/.env
 
-downloads/
-
-.idea/
-.vscode/
-
-*.egg-info/
-dist/
-build/
-
+# --- editors / OS ---
 .DS_Store
+.vscode/
+.idea/
