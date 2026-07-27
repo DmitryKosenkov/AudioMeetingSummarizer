@@ -39,7 +39,6 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(title="Audio Meeting Summarizer API", lifespan=lifespan)
 
-    # Narrow allow_origins to your deployed frontend's URL before shipping.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
