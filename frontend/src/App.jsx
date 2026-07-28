@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import Markdown from "react-markdown";
 import "./App.css";
 
 
@@ -166,7 +167,7 @@ export default function App() {
       {summary && (
         <div className="panel">
           <h2>Summary</h2>
-          <p className="text-block">{summary}</p>
+          <div className="markdown-body"><Markdown>{summary}</Markdown></div>
           <a
             className="button-link"
             href={`${API_BASE}/jobs/${jobId}/download/docx`}

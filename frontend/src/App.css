@@ -66,3 +66,12 @@ button:disabled {
   color: #555;
   font-size: 0.9rem;
 }
+
+.markdown-body { line-height: 1.6; }
+.markdown-body h1 { font-size: 1.3rem; margin: 0 0 12px; }
+.markdown-body h2 { font-size: 1.1rem; margin: 16px 0 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+.markdown-body h3 { font-size: 1rem; margin: 12px 0 6px; }
+.markdown-body ul, .markdown-body ol { padding-left: 20px; margin: 6px 0; }
+.markdown-body li { margin: 4px 0; }
+.markdown-body strong { font-weight: 600; }
+.markdown-body p { margin: 6px 0; }
