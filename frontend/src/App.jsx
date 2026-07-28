@@ -1,8 +1,9 @@
-import { useRef, useState } from "react";
 import Markdown from "react-markdown";
+import { useRef, useState } from "react";
 import "./App.css";
 
-
+// Always use a same-origin relative path. In dev, vite.config.js proxies
+// /api/* to the backend. In prod, nginx does the same via BACKEND_URL.
 const API_BASE = "/api";
 
 const STAGES = {
@@ -17,6 +18,7 @@ const STAGES = {
 
 export default function App() {
   const [file, setFile] = useState(null);
+  const [beamSize, setBeamSize] = useState(2);
   const [jobId, setJobId] = useState(null);
   const [stage, setStage] = useState(STAGES.IDLE);
   const [language, setLanguage] = useState(null);
@@ -48,6 +50,7 @@ export default function App() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("beam_size", beamSize);
 
       const res = await fetch(`${API_BASE}/jobs`, {
         method: "POST",
@@ -130,6 +133,26 @@ export default function App() {
 
       <div className="panel">
         <input type="file" accept="audio/*" onChange={handleFileChange} />
+        <div className="beam-selector">
+          <span className="beam-label">Transcription mode</span>
+          <div className="beam-options">
+            {[
+              { value: 1, label: "Maximum speed",    hint: "beam size 1" },
+              { value: 2, label: "Balanced",         hint: "beam size 2" },
+              { value: 5, label: "Maximum accuracy", hint: "beam size 5" },
+            ].map(({ value, label, hint }) => (
+              <button
+                key={value}
+                className={`beam-option${beamSize === value ? " beam-option--active" : ""}`}
+                onClick={() => setBeamSize(value)}
+                disabled={isBusy}
+                title={hint}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
         <button onClick={handleUpload} disabled={!file || isBusy}>
           {stage === STAGES.UPLOADING ? "Uploading..." : "Upload & Transcribe"}
         </button>
