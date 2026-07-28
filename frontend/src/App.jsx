@@ -167,7 +167,7 @@ export default function App() {
       {summary && (
         <div className="panel">
           <h2>Summary</h2>
-          <p className="markdown-body"><Markdown>{summary}</Markdown></p>
+          <div className="markdown-body"><Markdown>{summary}</Markdown></div>
           <a
             className="button-link"
             href={`${API_BASE}/jobs/${jobId}/download/docx`}
