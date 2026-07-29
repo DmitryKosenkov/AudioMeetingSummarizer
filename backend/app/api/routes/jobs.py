@@ -6,6 +6,7 @@
     4. GET    /api/jobs/{job_id}/download/txt|docx
 """
 import asyncio
+import contextlib
 import logging
 import os
 import uuid
@@ -126,6 +127,8 @@ async def stream_transcript(
                 else:
                     job.transcript = full_transcript
                     job.status = JobStatus.TRANSCRIBED
+                    with contextlib.suppress(OSError):
+                        os.unlink(job.audio_path)
                     yield sse_event("done", full_transcript)
 
             elif kind is StreamEventKind.ERROR:
@@ -133,10 +136,14 @@ async def stream_transcript(
                 logger.exception("Transcription failed for job %s", job_id, exc_info=error)
                 job.status = JobStatus.ERROR
                 job.error = str(error)
+                with contextlib.suppress(OSError):
+                    os.unlink(job.audio_path)
                 yield sse_event("error", str(error))
 
         if disconnected and job.status == JobStatus.TRANSCRIBING:
             job.status = JobStatus.QUEUED
+            with contextlib.suppress(OSError):
+                os.unlink(job.audio_path)
 
     return StreamingResponse(
         event_generator(),
