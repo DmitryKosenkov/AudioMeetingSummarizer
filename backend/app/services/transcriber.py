@@ -60,9 +60,7 @@ class WhisperTranscriber(Transcriber):
                 language=self.language,
                 beam_size=beam_size,
                 vad_filter=True,
-                vad_parameters=dict(
-                    min_silence_duration_ms=1000,
-                ),
+                vad_parameters={"min_silence_duration_ms": 1000},
             )
             yield LanguageDetected(info.language)
             for segment in segments:
