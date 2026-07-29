@@ -30,7 +30,7 @@ class FakeTranscriber(Transcriber):
     def transcribe(self, audio_path: str) -> str:
         return " ".join(self.segments)
 
-    def transcribe_stream(self, audio_path: str) -> Iterator[LanguageDetected | str]:
+    def transcribe_stream(self, audio_path: str, beam_size: int = 2) -> Iterator[LanguageDetected | str]:
         if self.raise_error:
             raise RuntimeError("simulated transcription failure")
         yield LanguageDetected(self.language)
@@ -84,6 +84,7 @@ def uploaded_job_id(client):
     response = client.post(
         "/api/jobs",
         files={"file": ("meeting.mp3", b"fake audio bytes", "audio/mpeg")},
+        data={"beam_size": 2},
     )
     assert response.status_code == 200
     return response.json()["job_id"]

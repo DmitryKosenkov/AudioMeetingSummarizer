@@ -11,7 +11,7 @@ import os
 import uuid
 from typing import cast
 
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
 
 from app.api.deps import get_summarizer, get_transcriber
@@ -40,7 +40,7 @@ def _get_job_or_404(job_id: str) -> Job:
 
 
 @router.post("", response_model=JobCreateResponse)
-async def upload_audio(file: UploadFile):
+async def upload_audio(file: UploadFile, beam_size: int = Form(default=2)):
     file_extension = os.path.splitext(file.filename or "")[1].lower()
     if file_extension not in ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -60,7 +60,8 @@ async def upload_audio(file: UploadFile):
 
     await asyncio.to_thread(_write_to_disk)
 
-    job = create_job(filename=file.filename or "audio", audio_path=saved_path)
+    beam_size = max(1, min(beam_size, 5))  # clamp to valid faster-whisper range
+    job = create_job(filename=file.filename or "audio", audio_path=saved_path, beam_size=beam_size)
     return JobCreateResponse(job_id=job.id, status=job.status)
 
 
@@ -101,7 +102,7 @@ async def stream_transcript(
         disconnected = False
 
         async for kind, payload in stream_from_blocking_generator(
-            lambda: transcriber.transcribe_stream(job.audio_path)
+            lambda: transcriber.transcribe_stream(job.audio_path, beam_size=job.beam_size)
         ):
             if await request.is_disconnected():
                 disconnected = True

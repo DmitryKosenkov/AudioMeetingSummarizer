@@ -29,16 +29,21 @@ class Transcriber(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def transcribe_stream(self, audio_path: str) -> Iterator[LanguageDetected | str]:
+    def transcribe_stream(self, audio_path: str, beam_size: int = 2) -> Iterator[LanguageDetected | str]:
         raise NotImplementedError
 
 
 class WhisperTranscriber(Transcriber):
     """Local speech-to-text using faster-whisper."""
 
-    def __init__(self, model_size: str = "large-v3-turbo", language: str = ""):
+    def __init__(self, model_size: str = "small", language: str = ""):
         logger.info("Loading Whisper model '%s'...", model_size)
-        self.model = WhisperModel(model_size, device="cpu", compute_type="int8")
+        self.model = WhisperModel(
+            model_size,
+            device="cpu",
+            compute_type="int8",
+            cpu_threads=4,
+        )
         self.language = language or None
         logger.info("Whisper model loaded.")
 
@@ -48,10 +53,14 @@ class WhisperTranscriber(Transcriber):
         ]
         return " ".join(segments).strip()
 
-    def transcribe_stream(self, audio_path: str) -> Iterator[LanguageDetected | str]:
+    def transcribe_stream(self, audio_path: str, beam_size: int = 2) -> Iterator[LanguageDetected | str]:
         try:
             segments, info = self.model.transcribe(
-                audio_path, language=self.language, beam_size=5
+                audio_path,
+                language=self.language,
+                beam_size=beam_size,
+                vad_filter=True,
+                vad_parameters={"min_silence_duration_ms": 1000},
             )
             yield LanguageDetected(info.language)
             for segment in segments:
