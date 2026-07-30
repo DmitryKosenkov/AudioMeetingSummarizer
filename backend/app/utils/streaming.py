@@ -4,6 +4,9 @@ it can be consumed inside a FastAPI route without blocking the event loop.
 The generator runs on a background thread; each item it produces is handed
 back to the event loop via `loop.call_soon_threadsafe` and placed on an
 asyncio.Queue, which is then drained here.
+
+A periodic heartbeat is sent while the queue is idle so that Azure Container
+Apps' 240-second connection timeout doesn't drop the SSE stream mid-transcription.
 """
 import asyncio
 import threading
@@ -11,7 +14,7 @@ from collections.abc import AsyncIterator, Callable, Iterator
 from enum import Enum
 from typing import Any
 
-_HEARTBEAT_INTERVAL = 10.0  # seconds
+_HEARTBEAT_INTERVAL = 20.0  # seconds
 
 
 class StreamEventKind(str, Enum):
@@ -26,42 +29,31 @@ async def stream_from_blocking_generator(
 ) -> AsyncIterator[tuple[StreamEventKind, Any]]:
     """Run a blocking generator on a background thread and yield its items
     as (StreamEventKind, payload) tuples: ITEM per item, then a final DONE
-    or ERROR. HEARTBEAT tuples are interleaved periodically to keep the SSE
-    connection alive during long silent phases (e.g. VAD preprocessing).
+    or ERROR. HEARTBEAT tuples are interleaved whenever the queue is idle for
+    longer than _HEARTBEAT_INTERVAL seconds.
     """
     loop = asyncio.get_running_loop()
     queue: asyncio.Queue = asyncio.Queue()
-    done = threading.Event()
 
-    def heartbeat_thread() -> None:
-        """Send a heartbeat every _HEARTBEAT_INTERVAL seconds until the
-        generator finishes. Runs independently of the generator thread so
-        heartbeats fire even when the generator is blocked inside a long
-        synchronous call (e.g. faster-whisper's VAD preprocessing step,
-        which runs before the segment iterator yields anything at all).
-        """
-        while not done.wait(timeout=_HEARTBEAT_INTERVAL):
-            loop.call_soon_threadsafe(
-                queue.put_nowait, (StreamEventKind.HEARTBEAT, None)
-            )
-
-    def generator_thread() -> None:
+    def run_on_background_thread() -> None:
         try:
             for item in make_generator():
                 loop.call_soon_threadsafe(queue.put_nowait, (StreamEventKind.ITEM, item))
             loop.call_soon_threadsafe(queue.put_nowait, (StreamEventKind.DONE, None))
-        except Exception as error:  # noqa: BLE001
+        except Exception as error:  # noqa: BLE001 - report it to the client instead of crashing the thread
             loop.call_soon_threadsafe(queue.put_nowait, (StreamEventKind.ERROR, error))
-        finally:
-            done.set()
 
-    loop.call_soon_threadsafe(queue.put_nowait, (StreamEventKind.HEARTBEAT, None))
-
-    threading.Thread(target=heartbeat_thread, daemon=True).start()
-    threading.Thread(target=generator_thread, daemon=True).start()
+    threading.Thread(target=run_on_background_thread, daemon=True).start()
 
     while True:
-        kind, payload = await queue.get()
+        try:
+            kind, payload = await asyncio.wait_for(
+                queue.get(), timeout=_HEARTBEAT_INTERVAL
+            )
+        except TimeoutError:
+            yield StreamEventKind.HEARTBEAT, None
+            continue
+
         yield kind, payload
         if kind in (StreamEventKind.DONE, StreamEventKind.ERROR):
             return
