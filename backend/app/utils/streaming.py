@@ -7,7 +7,6 @@ asyncio.Queue, which is then drained here.
 """
 import asyncio
 import threading
-import time
 from collections.abc import AsyncIterator, Callable, Iterator
 from enum import Enum
 from typing import Any
