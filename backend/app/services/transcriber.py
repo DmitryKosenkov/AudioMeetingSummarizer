@@ -59,7 +59,6 @@ class WhisperTranscriber(Transcriber):
                 audio_path,
                 language=self.language,
                 beam_size=beam_size,
-                chunk_length=5,
                 vad_filter=True,
                 vad_parameters={"min_silence_duration_ms": 1000},
             )
