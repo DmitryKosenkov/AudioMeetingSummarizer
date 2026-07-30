@@ -5,10 +5,15 @@ import json
 
 
 def parse_sse(body: str) -> list[tuple[str, object]]:
-    """Turn raw `event: X\\ndata: Y\\n\\n` text into [(event, decoded_data), ...]."""
+    """Turn raw `event: X\\ndata: Y\\n\\n` text into [(event, decoded_data), ...].
+    Comment-only blocks (e.g. `: heartbeat`) are silently skipped.
+    """
     events = []
     for block in body.strip().split("\n\n"):
         lines = block.splitlines()
+        # Skip SSE comment blocks — heartbeat keep-alives carry no event data.
+        if not any(line.startswith("event: ") for line in lines):
+            continue
         event = next(line.removeprefix("event: ") for line in lines if line.startswith("event: "))
         data_line = next(line.removeprefix("data: ") for line in lines if line.startswith("data: "))
         events.append((event, json.loads(data_line)))
