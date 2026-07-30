@@ -109,7 +109,10 @@ async def stream_transcript(
                 disconnected = True
                 break
 
-            if kind is StreamEventKind.ITEM:
+            if kind is StreamEventKind.HEARTBEAT:
+                yield ": heartbeat\n\n"
+
+            elif kind is StreamEventKind.ITEM:
                 if isinstance(payload, LanguageDetected):
                     job.detected_language = payload.language
                     yield sse_event("language", payload.language)
