@@ -23,6 +23,7 @@ class Job:
     filename: str
     audio_path: str
     beam_size: int = 2
+    language: str | None = None
     status: JobStatus = JobStatus.QUEUED
     transcript: str | None = None
     detected_language: str | None = None
@@ -34,8 +35,16 @@ _jobs: dict[str, Job] = {}
 _lock = threading.Lock()
 
 
-def create_job(filename: str, audio_path: str, beam_size: int = 2) -> Job:
-    job = Job(id=str(uuid.uuid4()), filename=filename, audio_path=audio_path, beam_size=beam_size)
+def create_job(
+    filename: str, audio_path: str, beam_size: int = 2, language: str | None = None
+) -> Job:
+    job = Job(
+        id=str(uuid.uuid4()),
+        filename=filename,
+        audio_path=audio_path,
+        beam_size=beam_size,
+        language=language,
+    )
     with _lock:
         _jobs[job.id] = job
     return job

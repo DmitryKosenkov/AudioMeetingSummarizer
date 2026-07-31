@@ -23,9 +23,7 @@ async def lifespan(app: FastAPI):
     """
     setup_logging()
 
-    app.state.transcriber = WhisperTranscriber(
-        model_size=settings.whisper_model_size, language=settings.whisper_language
-    )
+    app.state.transcriber = WhisperTranscriber(model_size=settings.whisper_model_size)
     app.state.summarizer = GeminiSummarizer(
         api_key=settings.gemini_api_key,
         model=settings.gemini_model,
