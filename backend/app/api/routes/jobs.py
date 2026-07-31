@@ -155,6 +155,9 @@ async def stream_transcript(
                         os.unlink(job.audio_path)
                     yield sse_event("done", full_transcript)
 
+            elif kind is StreamEventKind.KEEPALIVE:
+                yield ": keepalive\n\n"
+
             elif kind is StreamEventKind.ERROR:
                 error = cast(BaseException, payload)
                 logger.exception("Transcription failed for job %s", job_id, exc_info=error)
