@@ -1,5 +1,9 @@
 """Prompt templates used to call Gemini."""
 
+# Maps Whisper language codes to language names Gemini can act on reliably.
+# Falls back to the raw code for anything not listed. Also doubles as the
+# set of languages the frontend lets the user pick from - see
+# GET /api/languages in app/api/routes/jobs.py.
 LANGUAGE_NAMES = {
     "ru": "Russian",
     "en": "English",

@@ -21,12 +21,8 @@ class StreamEventKind(str, Enum):
 
 async def stream_from_blocking_generator(
     make_generator: Callable[[], Iterator[Any]],
-    keepalive_interval: float = 5.0,
+    keepalive_interval: float = 15.0,
 ) -> AsyncIterator[tuple[StreamEventKind, Any]]:
-    """Run a blocking generator on a background thread and yield its items
-    as (StreamEventKind, payload) tuples: ITEM per item, then a final DONE
-    or ERROR.
-    """
     loop = asyncio.get_running_loop()
     queue: asyncio.Queue = asyncio.Queue()
 

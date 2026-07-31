@@ -2,6 +2,7 @@
 depend on faster-whisper specifically.
 """
 import logging
+import math
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -9,6 +10,18 @@ from dataclasses import dataclass
 from faster_whisper import WhisperModel
 
 logger = logging.getLogger(__name__)
+
+_TARGET_CHUNK_MINUTES = 10
+_MIN_CHUNK_SECONDS = 300   # 5 min — don't bother chunking tiny files
+_MAX_CHUNK_SECONDS = 600   # 10 min hard ceiling
+
+
+def _chunk_length_for(duration_seconds: float) -> int | None:
+    if duration_seconds <= _MIN_CHUNK_SECONDS:
+        return None
+    num_chunks = math.ceil(duration_seconds / (_TARGET_CHUNK_MINUTES * 60))
+    chunk = math.ceil(duration_seconds / num_chunks)
+    return min(chunk, _MAX_CHUNK_SECONDS)
 
 
 @dataclass(frozen=True)
@@ -62,9 +75,23 @@ class WhisperTranscriber(Transcriber):
                 audio_path,
                 language=language or None,
                 beam_size=beam_size,
-                # vad_filter=True,
-                # vad_parameters={"min_silence_duration_ms": 1000},
             )
+
+            chunk_length = _chunk_length_for(info.duration)
+            if chunk_length is not None:
+                logger.info(
+                    "Audio duration %.0fs — re-transcribing with chunk_length=%ds (%d chunks)",
+                    info.duration,
+                    chunk_length,
+                    math.ceil(info.duration / chunk_length),
+                )
+                segments, info = self.model.transcribe(
+                    audio_path,
+                    language=info.language,
+                    beam_size=beam_size,
+                    chunk_length=chunk_length,
+                )
+
             yield LanguageDetected(info.language)
             for segment in segments:
                 text = segment.text.strip()
