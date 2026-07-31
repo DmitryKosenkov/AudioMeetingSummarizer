@@ -15,7 +15,8 @@ Google Gemini.
 - Accepts audio uploads (`.mp3`, `.wav`, `.ogg`, `.m4a`, `.flac`, `.webm`,
   `.opus`, `.aac`)
 - Local, offline transcription
-- Automatic language detection by default (or force one via `WHISPER_LANGUAGE`)
+- Transcript language chosen per upload (auto-detect by default, or pick
+  one explicitly - see `GET /api/languages`)
 - Transcript streams to the client via Server-Sent Events (SSE) as
   faster-whisper produces each segment
 - Structured meeting summary (Overview, Key Discussion Points, Decisions
@@ -49,7 +50,8 @@ happens once. Interactive API docs: `http://localhost:8000/docs`.
 
 | Method | Path                                | Description                                       |
 |--------|--------------------------------------|------------------------------------------------------|
-| POST   | `/api/jobs`                         | Upload an audio file, returns a `job_id`               |
+| GET    | `/api/languages`                    | List selectable languages, plus the auto-detect default |
+| POST   | `/api/jobs`                         | Upload an audio file (optionally with a `language` code from `/api/languages`, defaults to auto-detect), returns a `job_id` |
 | GET    | `/api/jobs/{job_id}`                | Get current job status/transcript/summary              |
 | GET    | `/api/jobs/{job_id}/stream`         | SSE stream: detected/used language, then transcript segments |
 | POST   | `/api/jobs/{job_id}/summarize`      | Generate the summary from the finished transcript        |
@@ -70,7 +72,6 @@ Read from environment variables (see `.env.example`):
 |------------------------------|-------------------------|-------------------------------------------|
 | `GEMINI_API_KEY`            | -                       | Gemini API key                            |
 | `WHISPER_MODEL_SIZE`        | `small`                 | faster-whisper model size                 |
-| `WHISPER_LANGUAGE`          | *(auto-detect)*         | Force a language (e.g. `ru`, `en`) instead of auto-detecting |
 | `GEMINI_MODEL`              | `gemini-3.1-flash-lite` | Gemini model used for summarization       |
 | `GEMINI_MAX_ATTEMPTS`       | `3`                     | Retry attempts on transient errors        |
 | `GEMINI_RETRY_DELAY_SECONDS`| `5`                     | Base delay between retries                |
@@ -140,9 +141,9 @@ wouldn't require touching the routes.
 The Gemini prompt (`app/services/prompts.py`) asks for a structured
 Markdown summary — Overview, Key Discussion Points, Decisions Made, Action
 Items, Next Steps — generated in whichever language was used for that
-job: either the one forced via `WHISPER_LANGUAGE`, or the one
-faster-whisper auto-detected, stored on the job as `detected_language`
-and passed into `summarize()` at call time. A code-to-name lookup
+job: either the one the user picked on upload, or the one faster-whisper
+auto-detected when they left it on auto, stored on the job as
+`detected_language` and passed into `summarize()` at call time. A code-to-name lookup
 (`LANGUAGE_NAMES`) turns that code into an unambiguous instruction for
 Gemini, e.g. "Russian" rather than the raw code `ru`.
 

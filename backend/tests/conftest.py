@@ -26,14 +26,18 @@ class FakeTranscriber(Transcriber):
         self.segments = segments if segments is not None else ["Hello.", "This is a test."]
         self.language = language
         self.raise_error = raise_error
+        self.requested_language = None
 
-    def transcribe(self, audio_path: str) -> str:
+    def transcribe(self, audio_path: str, language: str | None = None) -> str:
         return " ".join(self.segments)
 
-    def transcribe_stream(self, audio_path: str, beam_size: int = 2) -> Iterator[LanguageDetected | str]:
+    def transcribe_stream(
+        self, audio_path: str, beam_size: int = 2, language: str | None = None
+    ) -> Iterator[LanguageDetected | str]:
+        self.requested_language = language
         if self.raise_error:
             raise RuntimeError("simulated transcription failure")
-        yield LanguageDetected(self.language)
+        yield LanguageDetected(language or self.language)
         yield from self.segments
 
 

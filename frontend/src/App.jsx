@@ -1,10 +1,10 @@
 import Markdown from "react-markdown";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
-// Always use a same-origin relative path. In dev, vite.config.js proxies
-// /api/* to the backend. In prod, nginx does the same via BACKEND_URL.
 const API_BASE = "/api";
+
+const AUTO_DETECT = "auto";
 
 const STAGES = {
   IDLE: "idle",
@@ -19,6 +19,8 @@ const STAGES = {
 export default function App() {
   const [file, setFile] = useState(null);
   const [beamSize, setBeamSize] = useState(2);
+  const [availableLanguages, setAvailableLanguages] = useState([]);
+  const [languageChoice, setLanguageChoice] = useState(AUTO_DETECT);
   const [jobId, setJobId] = useState(null);
   const [stage, setStage] = useState(STAGES.IDLE);
   const [language, setLanguage] = useState(null);
@@ -26,6 +28,14 @@ export default function App() {
   const [summary, setSummary] = useState("");
   const [error, setError] = useState("");
   const eventSourceRef = useRef(null);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/languages`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("failed"))))
+      .then((data) => setAvailableLanguages(data.languages))
+      .catch(() => {
+      });
+  }, []);
 
   function reset() {
     eventSourceRef.current?.close();
@@ -51,6 +61,7 @@ export default function App() {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("beam_size", beamSize);
+      formData.append("language", languageChoice);
 
       const res = await fetch(`${API_BASE}/jobs`, {
         method: "POST",
@@ -153,6 +164,24 @@ export default function App() {
             ))}
           </div>
         </div>
+        <div className="language-selector">
+          <label className="language-label" htmlFor="language-select">
+            Transcript language
+          </label>
+          <select
+            id="language-select"
+            value={languageChoice}
+            onChange={(e) => setLanguageChoice(e.target.value)}
+            disabled={isBusy}
+          >
+            <option value={AUTO_DETECT}>Auto-detect</option>
+            {availableLanguages.map(({ code, name }) => (
+              <option key={code} value={code}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
         <button onClick={handleUpload} disabled={!file || isBusy}>
           {stage === STAGES.UPLOADING ? "Uploading..." : "Upload & Transcribe"}
         </button>
@@ -161,7 +190,9 @@ export default function App() {
       {error && <p className="error">{error}</p>}
 
       {jobId && <p className="meta">Job ID: {jobId}</p>}
-      {language && <p className="meta">Detected language: {language}</p>}
+      {language && languageChoice === AUTO_DETECT && (
+        <p className="meta">Detected language: {language}</p>
+      )}
 
       {stage === STAGES.TRANSCRIBING && <p className="status">Transcribing...</p>}
 

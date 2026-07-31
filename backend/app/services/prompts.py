@@ -1,7 +1,5 @@
 """Prompt templates used to call Gemini."""
 
-# Maps WHISPER_LANGUAGE codes to language names Gemini can act on reliably.
-# Falls back to the raw code for anything not listed.
 LANGUAGE_NAMES = {
     "ru": "Russian",
     "en": "English",
@@ -39,7 +37,7 @@ Transcript:
 
 def build_meeting_summary_prompt(text: str, language: str) -> str:
     """Build the meeting-summary prompt for the given transcript and
-    WHISPER_LANGUAGE code (e.g. "ru", "en").
+    Whisper language code (e.g. "ru", "en").
     """
     language_name = LANGUAGE_NAMES.get(language, language)
     return MEETING_SUMMARY_PROMPT_TEMPLATE.format(language=language_name, text=text)
