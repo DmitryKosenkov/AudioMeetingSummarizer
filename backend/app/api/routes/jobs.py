@@ -26,6 +26,7 @@ from app.services.pipeline import summarize_async
 from app.services.prompts import LANGUAGE_NAMES
 from app.services.summarizer import SummarizationError, Summarizer
 from app.services.transcriber import LanguageDetected, Transcriber
+from app.utils.audio import split_audio
 from app.utils.sse import sse_event
 from app.utils.streaming import StreamEventKind, stream_from_blocking_generator
 
@@ -78,12 +79,16 @@ async def upload_audio(
 
     await asyncio.to_thread(_write_to_disk)
 
+    chunk_paths = await asyncio.to_thread(split_audio, saved_path)
+    is_chunked = len(chunk_paths) > 1
+
     beam_size = max(1, min(beam_size, 5))  # clamp to valid faster-whisper range
     job = create_job(
         filename=file.filename or "audio",
         audio_path=saved_path,
         beam_size=beam_size,
         language=transcription_language,
+        chunk_paths=chunk_paths if is_chunked else [],
     )
     return JobCreateResponse(job_id=job.id, status=job.status)
 
@@ -105,72 +110,101 @@ async def get_job_status(job_id: str):
 async def stream_transcript(
     job_id: str,
     request: Request,
+    chunk: int = 0,
     transcriber: Transcriber = Depends(get_transcriber),
 ):
-    """Streams the transcript to the client via Server-Sent Events as
-    faster-whisper produces each segment. The background-thread/queue
-    mechanics live in app/utils/streaming.py; this just reacts to each
-    event as it arrives.
-    """
     job = _get_job_or_404(job_id)
-    if job.status != JobStatus.QUEUED:
+
+    if job.status not in (JobStatus.QUEUED, JobStatus.TRANSCRIBING):
         raise HTTPException(
             status_code=409, detail=f"Job is '{job.status.value}', not ready to stream."
         )
 
     job.status = JobStatus.TRANSCRIBING
 
+    chunks = job.chunk_paths
+    if chunks:
+        if chunk >= len(chunks):
+            raise HTTPException(status_code=400, detail=f"Chunk index {chunk} out of range.")
+        audio_path = chunks[chunk]
+        is_last_chunk = chunk == len(chunks) - 1
+    else:
+        audio_path = job.audio_path
+        is_last_chunk = True
+
+    transcription_language = job.language or (job.detected_language if chunk > 0 else None)
+
     async def event_generator():
         transcript_pieces: list[str] = []
-        disconnected = False
 
         async for kind, payload in stream_from_blocking_generator(
             lambda: transcriber.transcribe_stream(
-                job.audio_path, beam_size=job.beam_size, language=job.language
+                audio_path, beam_size=job.beam_size, language=transcription_language
             )
         ):
-            if await request.is_disconnected():
-                disconnected = True
-                break
+            client_gone = await request.is_disconnected()
 
             if kind is StreamEventKind.ITEM:
                 if isinstance(payload, LanguageDetected):
-                    job.detected_language = payload.language
-                    yield sse_event("language", payload.language)
+                    if not job.detected_language:
+                        job.detected_language = payload.language
+                    if not client_gone:
+                        yield sse_event("language", payload.language)
                 else:
                     segment_text = cast(str, payload)
                     transcript_pieces.append(segment_text)
-                    yield sse_event("segment", segment_text)
+                    job.transcript = (
+                        (job.transcript or "") + " " + segment_text
+                    ).strip()
+                    if not client_gone:
+                        yield sse_event("segment", segment_text)
 
             elif kind is StreamEventKind.DONE:
-                full_transcript = " ".join(transcript_pieces).strip()
-                if not full_transcript:
-                    job.status = JobStatus.ERROR
-                    job.error = "No speech could be recognized in this file."
-                    yield sse_event("error", job.error)
-                else:
-                    job.transcript = full_transcript
-                    job.status = JobStatus.TRANSCRIBED
+                if chunks:
                     with contextlib.suppress(OSError):
-                        os.unlink(job.audio_path)
-                    yield sse_event("done", full_transcript)
+                        os.unlink(audio_path)
+
+                if is_last_chunk:
+                    full_transcript = (job.transcript or "").strip()
+                    if not full_transcript:
+                        job.status = JobStatus.ERROR
+                        job.error = "No speech could be recognized in this file."
+                        if not client_gone:
+                            yield sse_event("error", job.error)
+                    else:
+                        job.status = JobStatus.TRANSCRIBED
+                        with contextlib.suppress(OSError):
+                            os.unlink(job.audio_path)
+                        if not client_gone:
+                            yield sse_event("done", full_transcript)
+                        else:
+                            logger.info(
+                                "Job %s finished transcription after client disconnected; "
+                                "result available via GET /api/jobs/%s",
+                                job_id, job_id,
+                            )
+                else:
+                    if not client_gone:
+                        yield sse_event("chunk_done", str(chunk + 1))
+                return
 
             elif kind is StreamEventKind.KEEPALIVE:
-                yield ": keepalive\n\n"
+                if not client_gone:
+                    yield ": keepalive\n\n"
 
             elif kind is StreamEventKind.ERROR:
                 error = cast(BaseException, payload)
-                logger.exception("Transcription failed for job %s", job_id, exc_info=error)
+                logger.exception("Transcription failed for job %s chunk %d", job_id, chunk, exc_info=error)
                 job.status = JobStatus.ERROR
                 job.error = str(error)
                 with contextlib.suppress(OSError):
                     os.unlink(job.audio_path)
-                yield sse_event("error", str(error))
+                if not client_gone:
+                    yield sse_event("error", str(error))
+                return
 
-        if disconnected and job.status == JobStatus.TRANSCRIBING:
-            job.status = JobStatus.QUEUED
-            with contextlib.suppress(OSError):
-                os.unlink(job.audio_path)
+            if client_gone:
+                continue
 
     return StreamingResponse(
         event_generator(),

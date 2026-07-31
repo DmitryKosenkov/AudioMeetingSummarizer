@@ -29,6 +29,11 @@ class Job:
     detected_language: str | None = None
     summary: str | None = None
     error: str | None = None
+    chunk_paths: list[str] = None
+
+    def __post_init__(self) -> None:
+        if self.chunk_paths is None:
+            self.chunk_paths = []
 
 
 _jobs: dict[str, Job] = {}
@@ -36,7 +41,11 @@ _lock = threading.Lock()
 
 
 def create_job(
-    filename: str, audio_path: str, beam_size: int = 2, language: str | None = None
+    filename: str,
+    audio_path: str,
+    beam_size: int = 2,
+    language: str | None = None,
+    chunk_paths: list[str] | None = None,
 ) -> Job:
     job = Job(
         id=str(uuid.uuid4()),
@@ -44,6 +53,7 @@ def create_job(
         audio_path=audio_path,
         beam_size=beam_size,
         language=language,
+        chunk_paths=chunk_paths or [],
     )
     with _lock:
         _jobs[job.id] = job

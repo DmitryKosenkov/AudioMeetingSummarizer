@@ -39,6 +39,7 @@ export default function App() {
 
   function reset() {
     eventSourceRef.current?.close();
+    stopPolling();
     setJobId(null);
     setStage(STAGES.IDLE);
     setLanguage(null);
@@ -78,11 +79,43 @@ export default function App() {
     }
   }
 
-  function startStreaming(id) {
-    setStage(STAGES.TRANSCRIBING);
-    setTranscript("");
+  const pollTimerRef = useRef(null);
 
-    const es = new EventSource(`${API_BASE}/jobs/${id}/stream`);
+  function stopPolling() {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }
+
+  function startPolling(id) {
+    stopPolling();
+    pollTimerRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/jobs/${id}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (data.status === "transcribed" || data.status === "done") {
+          stopPolling();
+          setTranscript(data.transcript || "");
+          if (data.detected_language) setLanguage(data.detected_language);
+          setStage(STAGES.TRANSCRIBED);
+        } else if (data.status === "error") {
+          stopPolling();
+          setError(data.error || "Transcription failed.");
+          setStage(STAGES.ERROR);
+        }
+      } catch {
+      }
+    }, 10_000);
+  }
+
+  function startStreaming(id, chunkIndex = 0) {
+    setStage(STAGES.TRANSCRIBING);
+    if (chunkIndex === 0) setTranscript("");
+
+    const es = new EventSource(`${API_BASE}/jobs/${id}/stream?chunk=${chunkIndex}`);
     eventSourceRef.current = es;
 
     es.addEventListener("language", (e) => setLanguage(JSON.parse(e.data)));
@@ -92,24 +125,29 @@ export default function App() {
       setTranscript((prev) => (prev ? `${prev} ${segment}` : segment));
     });
 
+    es.addEventListener("chunk_done", (e) => {
+      es.close();
+      const nextChunk = parseInt(JSON.parse(e.data), 10);
+      startStreaming(id, nextChunk);
+    });
+
     es.addEventListener("done", (e) => {
+      stopPolling();
       setTranscript(JSON.parse(e.data));
       setStage(STAGES.TRANSCRIBED);
       es.close();
     });
 
     es.addEventListener("error", (e) => {
+      stopPolling();
       setError(JSON.parse(e.data) || "Transcription failed.");
       setStage(STAGES.ERROR);
       es.close();
     });
 
-    // Fires on network-level errors too (e.g. connection dropped)
     es.onerror = () => {
-      if (stage !== STAGES.TRANSCRIBED) {
-        setError((prev) => prev || "Connection to server lost during streaming.");
-      }
       es.close();
+      startPolling(id);
     };
   }
 
