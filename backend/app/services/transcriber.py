@@ -12,8 +12,8 @@ from faster_whisper import WhisperModel
 logger = logging.getLogger(__name__)
 
 _TARGET_CHUNK_MINUTES = 10
-_MIN_CHUNK_SECONDS = 300   # 5 min — don't bother chunking tiny files
-_MAX_CHUNK_SECONDS = 600   # 10 min hard ceiling
+_MIN_CHUNK_SECONDS = 300
+_MAX_CHUNK_SECONDS = 600
 
 
 def _chunk_length_for(duration_seconds: float) -> int | None:

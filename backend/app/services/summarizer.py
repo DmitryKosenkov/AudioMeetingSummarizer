@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from google import genai
 from google.genai import errors as genai_errors
 
-from app.services.prompts import build_meeting_summary_prompt
+from app.services.prompts import SummaryType, build_summary_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,9 @@ class Summarizer(ABC):
     """Turns a block of text into a short summary."""
 
     @abstractmethod
-    def summarize(self, text: str, language: str) -> str:
+    def summarize(
+        self, text: str, language: str, summary_type: SummaryType = SummaryType.MEETING
+    ) -> str:
         raise NotImplementedError
 
 
@@ -41,8 +43,10 @@ class GeminiSummarizer(Summarizer):
         self.max_attempts = max_attempts
         self.retry_delay_seconds = retry_delay_seconds
 
-    def summarize(self, text: str, language: str) -> str:
-        prompt = build_meeting_summary_prompt(text, language)
+    def summarize(
+        self, text: str, language: str, summary_type: SummaryType = SummaryType.MEETING
+    ) -> str:
+        prompt = build_summary_prompt(text, language, summary_type)
         response = self._generate_with_retry(prompt)
 
         if not response.text:
