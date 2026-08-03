@@ -42,14 +42,16 @@ class FakeTranscriber(Transcriber):
 
 
 class FakeSummarizer(Summarizer):
-    """Records the last (text, language) it was called with, for assertions."""
+    """Records the last call it was invoked with, for assertions."""
 
     def __init__(self, summary_text: str = "# Summary\n\nTest summary."):
         self.summary_text = summary_text
         self.last_call = None
+        self.last_summary_type = None
 
-    def summarize(self, text: str, language: str) -> str:
+    def summarize(self, text: str, language: str, summary_type=None) -> str:
         self.last_call = (text, language)
+        self.last_summary_type = summary_type
         return self.summary_text
 
 
@@ -92,3 +94,10 @@ def uploaded_job_id(client):
     )
     assert response.status_code == 200
     return response.json()["job_id"]
+
+
+@pytest.fixture
+def transcribed_job_id(client, uploaded_job_id):
+    """Drive the job all the way to TRANSCRIBED so summarize tests can use it."""
+    client.get(f"/api/jobs/{uploaded_job_id}/stream")
+    return uploaded_job_id

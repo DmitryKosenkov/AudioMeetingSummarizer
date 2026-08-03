@@ -21,6 +21,8 @@ export default function App() {
   const [beamSize, setBeamSize] = useState(2);
   const [availableLanguages, setAvailableLanguages] = useState([]);
   const [languageChoice, setLanguageChoice] = useState(AUTO_DETECT);
+  const [summaryTypes, setSummaryTypes] = useState([]);
+  const [summaryTypeChoice, setSummaryTypeChoice] = useState("meeting");
   const [jobId, setJobId] = useState(null);
   const [stage, setStage] = useState(STAGES.IDLE);
   const [language, setLanguage] = useState(null);
@@ -33,8 +35,15 @@ export default function App() {
     fetch(`${API_BASE}/languages`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error("failed"))))
       .then((data) => setAvailableLanguages(data.languages))
-      .catch(() => {
-      });
+      .catch(() => {});
+
+    fetch(`${API_BASE}/summary-types`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("failed"))))
+      .then((data) => {
+        setSummaryTypes(data.types);
+        setSummaryTypeChoice(data.default);
+      })
+      .catch(() => {});
   }, []);
 
   function reset() {
@@ -159,6 +168,8 @@ export default function App() {
     try {
       const res = await fetch(`${API_BASE}/jobs/${jobId}/summarize`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ summary_type: summaryTypeChoice }),
       });
       if (!res.ok) throw new Error(`Summarization failed (${res.status})`);
 
@@ -240,9 +251,26 @@ export default function App() {
           <p className="text-block">{transcript}</p>
 
           {stage === STAGES.TRANSCRIBED && (
-            <button onClick={handleSummarize} disabled={isBusy}>
-              Summarize
-            </button>
+            <>
+              <div className="language-selector">
+                <label className="language-label" htmlFor="summary-type-select">
+                  Summary type
+                </label>
+                <select
+                  id="summary-type-select"
+                  value={summaryTypeChoice}
+                  onChange={(e) => setSummaryTypeChoice(e.target.value)}
+                  disabled={isBusy}
+                >
+                  {summaryTypes.map(({ value, label }) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+              <button onClick={handleSummarize} disabled={isBusy}>
+                Summarize
+              </button>
+            </>
           )}
 
           <a

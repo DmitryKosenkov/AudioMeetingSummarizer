@@ -14,6 +14,7 @@ from typing import cast
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
+from pydantic import BaseModel
 
 from app.api.deps import get_summarizer, get_transcriber
 from app.api.routes.languages import AUTO_DETECT
@@ -23,12 +24,16 @@ from app.exporters.txt_export import render_transcript_to_txt
 from app.models.job import Job, JobStatus, create_job, get_job
 from app.schemas.job import JobCreateResponse, JobStatusResponse, SummaryResponse
 from app.services.pipeline import summarize_async
-from app.services.prompts import LANGUAGE_NAMES
+from app.services.prompts import LANGUAGE_NAMES, SummaryType
 from app.services.summarizer import SummarizationError, Summarizer
 from app.services.transcriber import LanguageDetected, Transcriber
 from app.utils.audio import split_audio
 from app.utils.sse import sse_event
 from app.utils.streaming import StreamEventKind, stream_from_blocking_generator
+
+
+class SummarizeRequest(BaseModel):
+    summary_type: SummaryType = SummaryType.MEETING
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -79,6 +84,9 @@ async def upload_audio(
 
     await asyncio.to_thread(_write_to_disk)
 
+    # Split long files into fixed-length chunks so no single SSE connection
+    # has to stay open for the full transcription duration.  For short files
+    # split_audio() returns [saved_path] unchanged.
     chunk_paths = await asyncio.to_thread(split_audio, saved_path)
     is_chunked = len(chunk_paths) > 1
 
@@ -214,7 +222,13 @@ async def stream_transcript(
 
 
 @router.post("/{job_id}/summarize", response_model=SummaryResponse)
-async def summarize_transcript(job_id: str, summarizer: Summarizer = Depends(get_summarizer)):
+async def summarize_transcript(
+    job_id: str,
+    body: SummarizeRequest | None = None,
+    summarizer: Summarizer = Depends(get_summarizer),
+):
+    if body is None:
+        body = SummarizeRequest()
     job = _get_job_or_404(job_id)
     if job.status != JobStatus.TRANSCRIBED or not job.transcript:
         raise HTTPException(
@@ -224,7 +238,7 @@ async def summarize_transcript(job_id: str, summarizer: Summarizer = Depends(get
     job.status = JobStatus.SUMMARIZING
     language = job.detected_language or "en"
     try:
-        summary = await summarize_async(job.transcript, language, summarizer)
+        summary = await summarize_async(job.transcript, language, summarizer, body.summary_type)
     except SummarizationError as error:
         job.status = JobStatus.ERROR
         job.error = str(error)

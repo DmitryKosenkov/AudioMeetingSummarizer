@@ -207,3 +207,86 @@ def test_full_pipeline_downloads_succeed(client, uploaded_job_id):
     assert docx_response.headers["content-type"].startswith(
         "application/vnd.openxmlformats-officedocument"
     )
+
+
+# --- chunked streaming ---------------------------------------------------------
+
+
+def _inject_chunk_paths(job_id, chunk_paths, job_module_ref):
+    """Helper: plant fake chunk_paths on an existing job."""
+    import app.models.job as jm
+    jm._jobs[job_id].chunk_paths = chunk_paths
+
+
+def test_chunked_stream_emits_chunk_done_for_first_chunk(client, uploaded_job_id):
+    """When chunk_paths is set, stream?chunk=0 should finish with a
+    chunk_done event pointing at chunk 1, not a done event."""
+    import app.models.job as jm
+
+    # Plant two fake chunk paths.  The actual files don't need to exist
+    # because FakeTranscriber never reads them.
+    jm._jobs[uploaded_job_id].chunk_paths = ["/tmp/fake_chunk0.mp3", "/tmp/fake_chunk1.mp3"]
+
+    events = []
+    with client.stream("GET", f"/api/jobs/{uploaded_job_id}/stream?chunk=0") as r:
+        for line in r.iter_lines():
+            if line.startswith("event:"):
+                events.append(line.split(":", 1)[1].strip())
+
+    assert "chunk_done" in events
+    assert "done" not in events
+
+
+def test_chunked_stream_last_chunk_emits_done(client, uploaded_job_id):
+    """stream?chunk=1 on a 2-chunk job should emit done, not chunk_done."""
+    import app.models.job as jm
+
+    job = jm._jobs[uploaded_job_id]
+    job.chunk_paths = ["/tmp/fake_chunk0.mp3", "/tmp/fake_chunk1.mp3"]
+    # Simulate chunk 0 already having been processed.
+    job.status = jm.JobStatus.TRANSCRIBING
+    job.transcript = "Hello."
+    job.detected_language = "en"
+
+    events = []
+    with client.stream("GET", f"/api/jobs/{uploaded_job_id}/stream?chunk=1") as r:
+        for line in r.iter_lines():
+            if line.startswith("event:"):
+                events.append(line.split(":", 1)[1].strip())
+
+    assert "done" in events
+    assert "chunk_done" not in events
+
+
+# --- summary type ----------------------------------------------------------
+
+
+def test_summarize_forwards_summary_type_to_the_summarizer(
+    client, transcribed_job_id, fake_summarizer
+):
+    client.post(
+        f"/api/jobs/{transcribed_job_id}/summarize",
+        json={"summary_type": "lecture"},
+    )
+
+    from app.services.prompts import SummaryType
+    assert fake_summarizer.last_summary_type == SummaryType.LECTURE
+
+
+def test_summarize_defaults_to_meeting_when_type_is_not_given(
+    client, transcribed_job_id, fake_summarizer
+):
+    client.post(f"/api/jobs/{transcribed_job_id}/summarize")
+
+    from app.services.prompts import SummaryType
+    assert fake_summarizer.last_summary_type == SummaryType.MEETING
+
+
+def test_list_summary_types_returns_all_five_types(client):
+    response = client.get("/api/summary-types")
+    assert response.status_code == 200
+
+    body = response.json()
+    assert body["default"] == "meeting"
+    values = {t["value"] for t in body["types"]}
+    assert values == {"meeting", "lecture", "custdev", "sales", "voice_note"}
