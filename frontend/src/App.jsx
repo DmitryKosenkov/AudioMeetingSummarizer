@@ -7,6 +7,7 @@ const API_BASE = "/api";
 const AUTO_DETECT = "auto";
 
 const STAGES = {
+  WAKING: "waking",
   IDLE: "idle",
   UPLOADING: "uploading",
   TRANSCRIBING: "transcribing",
@@ -24,7 +25,7 @@ export default function App() {
   const [summaryTypes, setSummaryTypes] = useState([]);
   const [summaryTypeChoice, setSummaryTypeChoice] = useState("meeting");
   const [jobId, setJobId] = useState(null);
-  const [stage, setStage] = useState(STAGES.IDLE);
+  const [stage, setStage] = useState(STAGES.WAKING);
   const [language, setLanguage] = useState(null);
   const [transcript, setTranscript] = useState("");
   const [summary, setSummary] = useState("");
@@ -44,6 +45,23 @@ export default function App() {
         setSummaryTypeChoice(data.default);
       })
       .catch(() => {});
+
+    let cancelled = false;
+    async function waitForBackend() {
+      while (!cancelled) {
+        try {
+          const res = await fetch(`${API_BASE}/health`);
+          if (res.ok) {
+            if (!cancelled) setStage(STAGES.IDLE);
+            return;
+          }
+        } catch {
+        }
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
+    waitForBackend();
+    return () => { cancelled = true; };
   }, []);
 
   function reset() {
@@ -183,6 +201,7 @@ export default function App() {
   }
 
   const isBusy =
+    stage === STAGES.WAKING ||
     stage === STAGES.UPLOADING ||
     stage === STAGES.TRANSCRIBING ||
     stage === STAGES.SUMMARIZING;
@@ -190,6 +209,13 @@ export default function App() {
   return (
     <div className="container">
       <h1>Audio Meeting Summarizer</h1>
+
+      {stage === STAGES.WAKING && (
+        <div className="waking-banner">
+          <span className="waking-spinner" aria-hidden="true" />
+          Waking up the backend — this takes a few seconds…
+        </div>
+      )}
 
       <div className="panel">
         <input type="file" accept="audio/*" onChange={handleFileChange} />
