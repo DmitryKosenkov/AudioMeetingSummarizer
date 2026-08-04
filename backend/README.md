@@ -104,6 +104,7 @@ app/
     deps.py                      shared transcriber/summarizer access via Depends()
     routes/
       jobs.py                    upload / stream / summarize / download endpoints
+      health.py                  GET /api/health
       languages.py               GET /api/languages and GET /api/summary-types
 
   core/
