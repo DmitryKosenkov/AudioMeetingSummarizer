@@ -1,11 +1,11 @@
-# Audio Meeting Summarizer — Frontend
+# Audio Meeting Summarizer - Frontend
 
 A single-page React application that lets users upload an audio recording,
 watch the transcript stream in live as faster-whisper produces it, choose a
 summary type, and download the results as `.txt` and `.docx`.
 
-Built with **React 19** and **Vite 8**. No UI framework — plain CSS with a
-minimal design system defined in `App.css`.
+Built with **React 19** and **Vite 8**. No UI framework, just plain CSS
+with a minimal design system defined in `App.css`.
 
 ## Features
 
@@ -35,7 +35,7 @@ npm run dev       # starts on http://localhost:5173
 ```
 
 `/api/*` requests are proxied to `http://localhost:8000` in development by
-`vite.config.js` — no CORS configuration needed locally.
+`vite.config.js`, so no CORS configuration is needed locally.
 
 ## Scripts
 
@@ -52,14 +52,15 @@ npm run dev       # starts on http://localhost:5173
 src/
   api/
     client.js           All fetch() calls in one place. Components and hooks
-                        never call fetch directly — they import named functions
-                        from here. If the base URL, auth headers, or error
-                        handling strategy changes, this is the only file to edit.
+                        never call fetch directly; they import named functions
+                        from here instead. If the base URL, auth headers, or
+                        error handling strategy changes, this is the only file
+                        to edit.
 
   hooks/
     useBackendWake.js   Polls GET /api/health until the backend responds with
-                        200. Returns { isWaking } — the rest of the app stays
-                        disabled until isWaking is false.
+                        200. Returns { isWaking }, and the rest of the app
+                        stays disabled until isWaking is false.
 
     useJob.js           All job state (jobId, stage, transcript, summary,
                         language, error), the SSE connection lifecycle, the
@@ -87,8 +88,9 @@ src/
                         composes the four components. Contains no fetch() calls
                         and no SSE logic.
 
-  App.css               All styles. One flat file — the app is small enough that
-                        a CSS framework would add more complexity than it removes.
+  App.css               All styles. One flat file, since the app is small
+                        enough that a CSS framework would add more complexity
+                        than it removes.
 ```
 
 ## Architecture notes
@@ -97,7 +99,7 @@ src/
 
 `useJob` extracts the stateful complexity (11 state variables, SSE lifecycle,
 polling fallback, two async actions) out of the component tree so components
-stay focused on rendering. The hook's public API is a flat object — components
+stay focused on rendering. The hook's public API is a flat object; components
 destructure what they need and ignore the rest.
 
 ### Why an `api/` layer?
@@ -120,10 +122,10 @@ delivered when the backend finishes.
 ### Scale-to-zero
 
 `useBackendWake` fires `GET /api/health` immediately on mount. This single
-request wakes the Azure Container App from 0 replicas. The upload form stays
-disabled — via the `isWaking` flag passed to `UploadPanel` — until the
-backend responds with 200, which means the Whisper model is fully loaded and
-the backend is ready to accept uploads.
+request wakes the Azure Container App from 0 replicas. The upload form
+stays disabled, via the `isWaking` flag passed to `UploadPanel`, until the
+backend responds with 200, which means the Whisper model is fully loaded
+and the backend is ready to accept uploads.
 
 ## Production build
 

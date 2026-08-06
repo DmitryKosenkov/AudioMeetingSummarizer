@@ -1,7 +1,7 @@
-# Audio Meeting Summarizer — Backend
+# Audio Meeting Summarizer - Backend
 
 A FastAPI backend that turns an uploaded audio recording into a clean
-transcript and a structured summary — delivered as a `.txt` and a `.docx`
+transcript and a structured summary, delivered as a `.txt` and a `.docx`
 file. The transcript streams to the client live, segment by segment, as
 it's produced, instead of leaving the user staring at a loading spinner.
 
@@ -14,7 +14,7 @@ Google Gemini.
 - Accepts audio uploads (`.mp3`, `.wav`, `.ogg`, `.m4a`, `.flac`, `.webm`,
   `.opus`, `.aac`)
 - Local, offline transcription via faster-whisper
-- Transcript language chosen per upload — auto-detect by default, or pick
+- Transcript language chosen per upload, auto-detect by default, or pick
   one explicitly (see `GET /api/languages`)
 - Long files are automatically split into chunks using ffmpeg so no single
   SSE connection has to stay open for the full transcription duration
@@ -46,7 +46,7 @@ python main.py
 ```
 
 On first run, faster-whisper downloads the transcription model (a few
-hundred MB to ~1.5 GB, depending on `WHISPER_MODEL_SIZE`) — this only
+hundred MB to ~1.5 GB, depending on `WHISPER_MODEL_SIZE`). This only
 happens once. Interactive API docs: `http://localhost:8000/docs`.
 
 ## API
@@ -95,7 +95,7 @@ Read from environment variables (see `.env.example`):
 ## Project layout
 
 ```
-main.py                          entry point — run with `python main.py`
+main.py                          entry point, run with `python main.py`
 
 app/
   main.py                        FastAPI app, CORS, lifespan (builds transcriber/summarizer once)
@@ -153,10 +153,11 @@ ready. The `/stream` route runs that blocking generator on a background thread
 (`app/utils/streaming.py`) and relays segments to the client over SSE, so the
 transcript fills in live.
 
-The transcript language is chosen per upload — not baked into the server config.
-`None` means auto-detect; an explicit code (e.g. `"ru"`) pins the language and
-skips detection, which is slightly faster. After the first chunk, the detected
-language is locked onto the job so subsequent chunks use it directly.
+The transcript language is chosen per upload rather than baked into the server
+config. `None` means auto-detect; an explicit code (e.g. `"ru"`) pins the
+language and skips detection, which is slightly faster. After the first
+chunk, the detected language is locked onto the job so subsequent chunks
+use it directly.
 
 ### Long file handling
 
@@ -192,12 +193,12 @@ QUEUED → TRANSCRIBING → TRANSCRIBED → SUMMARIZING → DONE
                                                    ↘ ERROR
 ```
 
-Job state lives in an in-memory dict — correct for a single-replica deployment.
-Swapping in Redis would only touch `app/models/job.py`.
+Job state lives in an in-memory dict, which is fine for a single-replica
+deployment. Swapping in Redis would only touch `app/models/job.py`.
 
 ### Exporters
 
-`docx_export` and `txt_export` convert results into real files — proper
+`docx_export` and `txt_export` convert results into real files: proper
 headings, bullets, and bold for the summary; plain UTF-8 for the transcript.
 Both live under `app/exporters/` as separate subpackages (importing `txt_export`
 never requires `python-docx`) and work as standalone CLI tools:
@@ -216,7 +217,8 @@ python -m app.exporters.txt_export  input.txt output.txt
 Every push and pull request against `main` runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
 lint (`ruff`) then the test suite (`pytest`, in [`tests/`](tests/)) against a
 `TestClient`, with the real Whisper/Gemini dependencies swapped for fakes via
-FastAPI's `dependency_overrides` — no model download or API key needed to run CI.
+FastAPI's `dependency_overrides`, so no model download or API key is needed
+to run CI.
 
 **Workflow:** feature branches (`feature/xyz`) → PR into `main` → CI must pass
 → squash-merge → auto-deploy. `main` is protected: PRs required, CI must pass,

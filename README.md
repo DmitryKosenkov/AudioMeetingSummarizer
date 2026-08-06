@@ -1,7 +1,8 @@
 # Audio Meeting Summarizer
 
 Upload a meeting recording, watch it get transcribed live (faster-whisper),
-then generate an AI summary (Gemini) — with transcript/summary downloads.
+then generate an AI summary (Gemini). Transcript and summary are both
+downloadable when they're ready.
 
 ## Architecture
 
@@ -66,6 +67,6 @@ cp backend/.env.example backend/.env   # add your GEMINI_API_KEY
 docker compose up --build
 ```
 Frontend (served by nginx, proxying to the backend container) is available
-at `http://localhost:8080`. The backend isn't exposed to the host directly —
-the frontend container is the only entry point, mirroring how you'd deploy
-this behind a single reverse proxy in production.
+at `http://localhost:8080`. The backend isn't exposed to the host directly;
+the frontend container is the only entry point, which mirrors how this
+would sit behind a single reverse proxy in production.

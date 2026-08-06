@@ -289,4 +289,4 @@ def test_list_summary_types_returns_all_five_types(client):
     body = response.json()
     assert body["default"] == "meeting"
     values = {t["value"] for t in body["types"]}
-    assert values == {"meeting", "lecture", "custdev", "sales", "voice_note"}
+    assert values == {"meeting", "lecture", "interview", "voice_note", "general"}
