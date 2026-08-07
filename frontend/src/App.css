@@ -137,3 +137,9 @@ button:disabled {
 }
 .language-selector select:hover:not(:disabled) { border-color: #999; background: #ececec; }
 .language-selector select:disabled { opacity: 0.5; cursor: not-allowed; }
+.summary-type-description {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  color: #777;
+  line-height: 1.45;
+}
