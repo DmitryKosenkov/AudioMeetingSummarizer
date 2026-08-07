@@ -37,6 +37,39 @@ SUMMARY_TYPE_LABELS: dict[SummaryType, str] = {
     SummaryType.GENERAL:    "General",
 }
 
+SUMMARY_TYPE_DESCRIPTIONS: dict[SummaryType, str] = {
+    SummaryType.MEETING: (
+        "Best for group discussions with multiple participants: team standups, "
+        "planning sessions, brainstorms, board meetings, or any call where "
+        "decisions and action items are expected. Produces an overview, key "
+        "discussion points, decisions made, action items, and next steps."
+    ),
+    SummaryType.LECTURE: (
+        "Best for one person teaching or presenting: online courses, university "
+        "lectures, conference talks, tutorials, or webinars. Produces a study "
+        "note with core topic, key concepts and definitions, detailed takeaways, "
+        "and review questions."
+    ),
+    SummaryType.INTERVIEW: (
+        "Best for a dialogue between two people: job interviews, podcasts, "
+        "journalist interviews, user research calls, sales calls, or customer "
+        "discovery sessions. Produces participants and context, main themes, "
+        "key statements, and notable quotes."
+    ),
+    SummaryType.VOICE_NOTE: (
+        "Best for a single speaker thinking out loud: personal memos, idea "
+        "dumps, verbal to-do lists, or recordings you made for yourself. "
+        "Produces a core idea, a structured breakdown of your thoughts, and "
+        "a list of tasks and ideas to follow up on."
+    ),
+    SummaryType.GENERAL: (
+        "Works for anything that doesn't fit the other types: a mix of "
+        "speakers and formats, an unknown recording, a phone call, or content "
+        "you're unsure how to categorize. Makes minimal assumptions and "
+        "produces what this is about, key points, and any action items found."
+    ),
+}
+
 
 # ---------------------------------------------------------------------------
 # Prompt templates  (one per summary type)

@@ -3,7 +3,7 @@ form, so the frontend doesn't need to hardcode its own copy of the list.
 """
 from fastapi import APIRouter
 
-from app.services.prompts import LANGUAGE_NAMES, SUMMARY_TYPE_LABELS, SummaryType
+from app.services.prompts import LANGUAGE_NAMES, SUMMARY_TYPE_DESCRIPTIONS, SUMMARY_TYPE_LABELS, SummaryType
 
 router = APIRouter(tags=["languages"])
 
@@ -25,7 +25,11 @@ async def list_summary_types():
     return {
         "default": SummaryType.MEETING,
         "types": [
-            {"value": st.value, "label": SUMMARY_TYPE_LABELS[st]}
+            {
+                "value": st.value,
+                "label": SUMMARY_TYPE_LABELS[st],
+                "description": SUMMARY_TYPE_DESCRIPTIONS[st],
+            }
             for st in SummaryType
         ],
     }

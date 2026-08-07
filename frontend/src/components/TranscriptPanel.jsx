@@ -14,6 +14,8 @@ export function TranscriptPanel({
     summaryTypes[0]?.value ?? "meeting"
   );
 
+  const selectedType = summaryTypes.find((t) => t.value === summaryTypeChoice);
+
   return (
     <div className="panel">
       <h2>Transcript</h2>
@@ -35,6 +37,9 @@ export function TranscriptPanel({
                 <option key={value} value={value}>{label}</option>
               ))}
             </select>
+            {selectedType?.description && (
+              <p className="summary-type-description">{selectedType.description}</p>
+            )}
           </div>
 
           <button onClick={() => onSummarize(summaryTypeChoice)} disabled={isBusy}>
