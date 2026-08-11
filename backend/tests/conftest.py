@@ -1,20 +1,20 @@
 """Shared pytest fixtures.
 
-Tests never touch the real WhisperTranscriber or GeminiSummarizer - both
-are expensive (a multi-GB model download; a real API key and network
-call) and have no place running in CI. Instead we swap them out via
-FastAPI's dependency_overrides, using tiny fake implementations of the
-same Transcriber/Summarizer interfaces the app already depends on. This
-is the whole reason those interfaces exist as abstract classes.
+Tests never touch the real WhisperTranscriber, GeminiSummarizer, or Redis
+— all three are expensive (model download, API key, running service) and
+have no place in CI.  We swap them out via FastAPI's dependency_overrides:
+
+  - Transcriber/Summarizer → tiny fake implementations
+  - JobStore               → InMemoryJobStore (no Redis needed)
 """
 from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.deps import get_summarizer, get_transcriber
+from app.api.deps import get_job_store, get_summarizer, get_transcriber
 from app.main import app
-from app.models import job as job_module
+from app.models.job import InMemoryJobStore
 from app.services.summarizer import Summarizer
 from app.services.transcriber import LanguageDetected, Transcriber
 
@@ -66,22 +66,23 @@ def fake_summarizer():
 
 
 @pytest.fixture
-def client(fake_transcriber, fake_summarizer):
-    """A TestClient with the real Whisper/Gemini dependencies swapped for
-    fakes. Deliberately NOT used as a context manager, so the app's real
-    lifespan (which loads the Whisper model) never runs.
+def job_store():
+    return InMemoryJobStore()
+
+
+@pytest.fixture
+def client(fake_transcriber, fake_summarizer, job_store):
+    """A TestClient with real heavy dependencies swapped for fakes.
+    Deliberately NOT used as a context manager so the app's real lifespan
+    (which loads Whisper and connects to Redis) never runs.
     """
     app.dependency_overrides[get_transcriber] = lambda: fake_transcriber
-    app.dependency_overrides[get_summarizer] = lambda: fake_summarizer
-
-    # The job store is a module-level dict, so it persists across tests
-    # unless cleared here.
-    job_module._jobs.clear()
+    app.dependency_overrides[get_summarizer]  = lambda: fake_summarizer
+    app.dependency_overrides[get_job_store]   = lambda: job_store
 
     yield TestClient(app)
 
     app.dependency_overrides.clear()
-    job_module._jobs.clear()
 
 
 @pytest.fixture

@@ -6,3 +6,4 @@ python-dotenv
 faster-whisper
 google-genai
 python-docx
+redis
