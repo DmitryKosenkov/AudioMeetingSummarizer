@@ -15,6 +15,7 @@ class Settings:
     gemini_max_attempts: int = int(os.getenv("GEMINI_MAX_ATTEMPTS", "3"))
     gemini_retry_delay_seconds: float = float(os.getenv("GEMINI_RETRY_DELAY_SECONDS", "5"))
     downloads_dir: str = os.getenv("DOWNLOADS_DIR", "downloads")
+    redis_url: str = os.getenv("REDIS_URL", "")
 
 
 settings = Settings()

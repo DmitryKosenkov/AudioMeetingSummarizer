@@ -16,12 +16,12 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
-from app.api.deps import get_summarizer, get_transcriber
+from app.api.deps import get_job_store, get_summarizer, get_transcriber
 from app.api.routes.languages import AUTO_DETECT
 from app.core.config import settings
 from app.exporters.docx_export import render_markdown_summary_to_docx
 from app.exporters.txt_export import render_transcript_to_txt
-from app.models.job import Job, JobStatus, create_job, get_job
+from app.models.job import Job, JobStatus, JobStore
 from app.schemas.job import JobCreateResponse, JobStatusResponse, SummaryResponse
 from app.services.pipeline import summarize_async
 from app.services.prompts import LANGUAGE_NAMES, SummaryType
@@ -35,14 +35,15 @@ from app.utils.streaming import StreamEventKind, stream_from_blocking_generator
 class SummarizeRequest(BaseModel):
     summary_type: SummaryType = SummaryType.MEETING
 
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 ALLOWED_EXTENSIONS = {".mp3", ".wav", ".ogg", ".m4a", ".flac", ".webm", ".opus", ".aac"}
 
 
-def _get_job_or_404(job_id: str) -> Job:
-    job = get_job(job_id)
+def _get_job_or_404(job_id: str, store: JobStore) -> Job:
+    job = store.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found.")
     return job
@@ -53,6 +54,7 @@ async def upload_audio(
     file: UploadFile,
     beam_size: int = Form(default=2),
     language: str = Form(default=AUTO_DETECT),
+    store: JobStore = Depends(get_job_store),
 ):
     file_extension = os.path.splitext(file.filename or "")[1].lower()
     if file_extension not in ALLOWED_EXTENSIONS:
@@ -62,8 +64,6 @@ async def upload_audio(
             f"Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
         )
 
-    # Only "auto" (the default) or one of the supported codes is valid.
-    # An empty/unset field is treated the same as "auto".
     language = language or AUTO_DETECT
     if language != AUTO_DETECT and language not in LANGUAGE_NAMES:
         raise HTTPException(
@@ -84,14 +84,11 @@ async def upload_audio(
 
     await asyncio.to_thread(_write_to_disk)
 
-    # Split long files into fixed-length chunks so no single SSE connection
-    # has to stay open for the full transcription duration.  For short files
-    # split_audio() returns [saved_path] unchanged.
     chunk_paths = await asyncio.to_thread(split_audio, saved_path)
     is_chunked = len(chunk_paths) > 1
 
-    beam_size = max(1, min(beam_size, 5))  # clamp to valid faster-whisper range
-    job = create_job(
+    beam_size = max(1, min(beam_size, 5))
+    job = store.create(
         filename=file.filename or "audio",
         audio_path=saved_path,
         beam_size=beam_size,
@@ -102,8 +99,8 @@ async def upload_audio(
 
 
 @router.get("/{job_id}", response_model=JobStatusResponse)
-async def get_job_status(job_id: str):
-    job = _get_job_or_404(job_id)
+async def get_job_status(job_id: str, store: JobStore = Depends(get_job_store)):
+    job = _get_job_or_404(job_id, store)
     return JobStatusResponse(
         job_id=job.id,
         status=job.status,
@@ -120,8 +117,20 @@ async def stream_transcript(
     request: Request,
     chunk: int = 0,
     transcriber: Transcriber = Depends(get_transcriber),
+    store: JobStore = Depends(get_job_store),
 ):
-    job = _get_job_or_404(job_id)
+    """Streams the transcript to the client via Server-Sent Events as
+    faster-whisper produces each segment.
+
+    For long files the audio was split into chunks at upload time.  Each
+    SSE connection processes exactly one chunk (selected by ?chunk=N) and
+    then sends either:
+      - "chunk_done" with the next chunk index  → frontend reconnects
+      - "done"                                  → transcription complete
+    This keeps each connection short enough to survive Azure's ingress
+    timeout even for hour-long recordings.
+    """
+    job = _get_job_or_404(job_id, store)
 
     if job.status not in (JobStatus.QUEUED, JobStatus.TRANSCRIBING):
         raise HTTPException(
@@ -129,6 +138,7 @@ async def stream_transcript(
         )
 
     job.status = JobStatus.TRANSCRIBING
+    store.save(job)
 
     chunks = job.chunk_paths
     if chunks:
@@ -143,8 +153,6 @@ async def stream_transcript(
     transcription_language = job.language or (job.detected_language if chunk > 0 else None)
 
     async def event_generator():
-        transcript_pieces: list[str] = []
-
         async for kind, payload in stream_from_blocking_generator(
             lambda: transcriber.transcribe_stream(
                 audio_path, beam_size=job.beam_size, language=transcription_language
@@ -156,14 +164,13 @@ async def stream_transcript(
                 if isinstance(payload, LanguageDetected):
                     if not job.detected_language:
                         job.detected_language = payload.language
+                        store.save(job)
                     if not client_gone:
                         yield sse_event("language", payload.language)
                 else:
                     segment_text = cast(str, payload)
-                    transcript_pieces.append(segment_text)
-                    job.transcript = (
-                        (job.transcript or "") + " " + segment_text
-                    ).strip()
+                    job.transcript = ((job.transcript or "") + " " + segment_text).strip()
+                    store.save(job)
                     if not client_gone:
                         yield sse_event("segment", segment_text)
 
@@ -177,10 +184,12 @@ async def stream_transcript(
                     if not full_transcript:
                         job.status = JobStatus.ERROR
                         job.error = "No speech could be recognized in this file."
+                        store.save(job)
                         if not client_gone:
                             yield sse_event("error", job.error)
                     else:
                         job.status = JobStatus.TRANSCRIBED
+                        store.save(job)
                         with contextlib.suppress(OSError):
                             os.unlink(job.audio_path)
                         if not client_gone:
@@ -202,9 +211,12 @@ async def stream_transcript(
 
             elif kind is StreamEventKind.ERROR:
                 error = cast(BaseException, payload)
-                logger.exception("Transcription failed for job %s chunk %d", job_id, chunk, exc_info=error)
+                logger.exception(
+                    "Transcription failed for job %s chunk %d", job_id, chunk, exc_info=error
+                )
                 job.status = JobStatus.ERROR
                 job.error = str(error)
+                store.save(job)
                 with contextlib.suppress(OSError):
                     os.unlink(job.audio_path)
                 if not client_gone:
@@ -226,32 +238,36 @@ async def summarize_transcript(
     job_id: str,
     body: SummarizeRequest | None = None,
     summarizer: Summarizer = Depends(get_summarizer),
+    store: JobStore = Depends(get_job_store),
 ):
     if body is None:
         body = SummarizeRequest()
-    job = _get_job_or_404(job_id)
+    job = _get_job_or_404(job_id, store)
     if job.status != JobStatus.TRANSCRIBED or not job.transcript:
         raise HTTPException(
             status_code=409, detail=f"Job is '{job.status.value}', transcript not ready."
         )
 
     job.status = JobStatus.SUMMARIZING
+    store.save(job)
     language = job.detected_language or "en"
     try:
         summary = await summarize_async(job.transcript, language, summarizer, body.summary_type)
     except SummarizationError as error:
         job.status = JobStatus.ERROR
         job.error = str(error)
+        store.save(job)
         raise HTTPException(status_code=502, detail=str(error)) from error
 
     job.summary = summary
     job.status = JobStatus.DONE
+    store.save(job)
     return SummaryResponse(job_id=job.id, status=job.status, summary=summary)
 
 
 @router.get("/{job_id}/download/txt")
-async def download_transcript_txt(job_id: str):
-    job = _get_job_or_404(job_id)
+async def download_transcript_txt(job_id: str, store: JobStore = Depends(get_job_store)):
+    job = _get_job_or_404(job_id, store)
     if not job.transcript:
         raise HTTPException(status_code=409, detail="Transcript not ready yet.")
     return Response(
@@ -262,8 +278,8 @@ async def download_transcript_txt(job_id: str):
 
 
 @router.get("/{job_id}/download/docx")
-async def download_summary_docx(job_id: str):
-    job = _get_job_or_404(job_id)
+async def download_summary_docx(job_id: str, store: JobStore = Depends(get_job_store)):
+    job = _get_job_or_404(job_id, store)
     if not job.summary:
         raise HTTPException(status_code=409, detail="Summary not ready yet.")
     return Response(

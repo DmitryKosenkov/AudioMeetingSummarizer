@@ -1,4 +1,15 @@
 services:
+  redis:
+    image: redis:7-alpine
+    expose:
+      - "6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -8,10 +19,14 @@ services:
       - ./backend/.env
     environment:
       - RELOAD=false
+      - REDIS_URL=redis://redis:6379/0
     volumes:
       - downloads:/dockerapp/downloads
     expose:
       - "8000"
+    depends_on:
+      redis:
+        condition: service_healthy
 
   frontend:
     build:
