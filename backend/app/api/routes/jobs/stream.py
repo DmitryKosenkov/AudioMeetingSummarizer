@@ -1,13 +1,4 @@
-"""GET /api/jobs/{job_id}/stream — stream transcript segments via SSE.
-
-Long files are split into chunks at upload time; each SSE connection
-processes exactly one chunk (selected by ?chunk=N), then sends either:
-  - "chunk_done" with the next index  → frontend reconnects
-  - "done"                            → transcription complete
-
-This keeps each connection short enough to survive Azure's ingress
-timeout even for hour-long recordings.
-"""
+"""GET /api/jobs/{job_id}/stream — stream transcript segments via SSE."""
 import contextlib
 import logging
 import os
