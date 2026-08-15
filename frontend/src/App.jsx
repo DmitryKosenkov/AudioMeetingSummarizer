@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { fetchLanguages, fetchSummaryTypes } from "./api/client";
-import { WakingBanner }    from "./components/WakingBanner";
-import { UploadPanel }     from "./components/UploadPanel";
-import { TranscriptPanel } from "./components/TranscriptPanel";
-import { SummaryPanel }    from "./components/SummaryPanel";
-import { useBackendWake }  from "./hooks/useBackendWake";
-import { useJob, STAGES }  from "./hooks/useJob";
+import { HeroDescription }  from "./components/HeroDescription";
+import { WakingBanner }     from "./components/WakingBanner";
+import { UploadPanel }      from "./components/UploadPanel";
+import { TranscriptPanel }  from "./components/TranscriptPanel";
+import { SummaryPanel }     from "./components/SummaryPanel";
+import { useBackendWake }   from "./hooks/useBackendWake";
+import { useJob, STAGES }   from "./hooks/useJob";
 import "./App.css";
 
 export default function App() {
@@ -27,6 +28,8 @@ export default function App() {
   return (
     <div className="container">
       <h1>Audio Meeting Summarizer</h1>
+
+      <HeroDescription />
 
       {isWaking && <WakingBanner />}
 
