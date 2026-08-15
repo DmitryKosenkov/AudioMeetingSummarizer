@@ -35,8 +35,80 @@
 
 h1 {
   font-size: 1.5rem;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
 }
+
+/* Hero description */
+.hero {
+  margin-bottom: 28px;
+}
+.hero-intro {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  line-height: 1.65;
+  color: #1a1a1a;
+}
+.hero-sub {
+  margin: 0 0 20px;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #555;
+}
+.hero-steps {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.hero-steps li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.hero-steps div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.hero-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.hero-step-title {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  line-height: 1.4;
+}
+.hero-step-detail {
+  font-size: 0.85rem;
+  color: #666;
+  line-height: 1.5;
+}
+.hero-toggle {
+  margin: 4px 0 0;
+  padding: 0;
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.hero-toggle:hover { color: #1a1a1a; }
 
 .panel {
   border: 1px solid #ddd;
