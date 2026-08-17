@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { downloadUrl } from "../api/client";
 import { STAGES } from "../hooks/useJob";
 
@@ -16,10 +16,18 @@ export function TranscriptPanel({
 
   const selectedType = summaryTypes.find((t) => t.value === summaryTypeChoice);
 
+  const textBlockRef = useRef(null);
+  useEffect(() => {
+    if (stage === STAGES.TRANSCRIBING && textBlockRef.current) {
+      const el = textBlockRef.current;
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [transcript, stage]);
+
   return (
     <div className="panel">
       <h2>Transcript</h2>
-      <p className="text-block">{transcript}</p>
+      <p className="text-block" ref={textBlockRef}>{transcript}</p>
 
       {stage === STAGES.TRANSCRIBED && (
         <>
