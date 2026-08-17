@@ -125,6 +125,57 @@ h1 {
   margin-bottom: 16px;
 }
 
+/* Drop zone */
+.drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 32px 20px;
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  background: #fafafa;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  text-align: center;
+  user-select: none;
+}
+.drop-zone:hover:not(.drop-zone--disabled) {
+  border-color: #999;
+  background: #f3f3f3;
+}
+.drop-zone--active {
+  border-color: #1a1a1a;
+  background: #f0f0f0;
+}
+.drop-zone--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.drop-zone-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+.drop-zone-filename {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  word-break: break-all;
+}
+.drop-zone-primary {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+.drop-zone-secondary {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #888;
+}
+
 button {
   padding: 8px 16px;
   margin-top: 8px;

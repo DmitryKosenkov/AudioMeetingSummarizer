@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { STAGES } from "../hooks/useJob";
 
 const AUTO_DETECT = "auto";
@@ -9,13 +9,38 @@ const BEAM_OPTIONS = [
   { value: 5, label: "Maximum accuracy", hint: "beam size 5" },
 ];
 
+const ACCEPT = ".mp3,.wav,.m4a,.ogg,.flac,.webm,.opus,.aac";
+
 export function UploadPanel({ languages, onUpload, disabled, stage }) {
   const [file,           setFile]           = useState(null);
   const [beamSize,       setBeamSize]       = useState(2);
   const [languageChoice, setLanguageChoice] = useState(AUTO_DETECT);
+  const [dragging,       setDragging]       = useState(false);
+
+  const inputRef = useRef(null);
+
+  function applyFile(f) {
+    if (f) setFile(f);
+  }
 
   function handleFileChange(e) {
-    setFile(e.target.files[0] ?? null);
+    applyFile(e.target.files[0] ?? null);
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    if (!disabled) setDragging(true);
+  }
+
+  function handleDragLeave(e) {
+    if (!e.currentTarget.contains(e.relatedTarget)) setDragging(false);
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    setDragging(false);
+    if (disabled) return;
+    applyFile(e.dataTransfer.files[0] ?? null);
   }
 
   function handleUpload() {
@@ -23,9 +48,42 @@ export function UploadPanel({ languages, onUpload, disabled, stage }) {
     onUpload(file, { beamSize, language: languageChoice });
   }
 
+  const isUploading = stage === STAGES.UPLOADING;
+
   return (
     <div className="panel">
-      <input type="file" accept="audio/*" onChange={handleFileChange} />
+
+      {/* Drop zone */}
+      <div
+        className={`drop-zone${dragging ? " drop-zone--active" : ""}${disabled ? " drop-zone--disabled" : ""}`}
+        onClick={() => !disabled && inputRef.current?.click()}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-label="Upload audio file"
+        onKeyDown={(e) => e.key === "Enter" && !disabled && inputRef.current?.click()}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept={ACCEPT}
+          onChange={handleFileChange}
+          style={{ display: "none" }}
+        />
+        <img src="/mic.svg" alt="" className="drop-zone-icon" />
+        {file ? (
+          <p className="drop-zone-filename">{file.name}</p>
+        ) : (
+          <>
+            <p className="drop-zone-primary">Drop your audio file here</p>
+            <p className="drop-zone-secondary">
+              or click to browse &middot; mp3, wav, m4a, ogg, flac, webm, opus, aac
+            </p>
+          </>
+        )}
+      </div>
 
       <div className="beam-selector">
         <span className="beam-label">Transcription mode</span>
@@ -62,7 +120,7 @@ export function UploadPanel({ languages, onUpload, disabled, stage }) {
       </div>
 
       <button onClick={handleUpload} disabled={!file || disabled}>
-        {stage === STAGES.UPLOADING ? "Uploading…" : "Upload & Transcribe"}
+        {isUploading ? "Uploading…" : "Upload & Transcribe"}
       </button>
     </div>
   );
