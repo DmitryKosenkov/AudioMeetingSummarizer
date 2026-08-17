@@ -7,28 +7,73 @@ import {
 } from "../api/client";
 
 export const STAGES = {
-  IDLE:        "idle",
-  UPLOADING:   "uploading",
-  TRANSCRIBING:"transcribing",
-  TRANSCRIBED: "transcribed",
-  SUMMARIZING: "summarizing",
-  DONE:        "done",
-  ERROR:       "error",
+  IDLE:         "idle",
+  UPLOADING:    "uploading",
+  TRANSCRIBING: "transcribing",
+  TRANSCRIBED:  "transcribed",
+  SUMMARIZING:  "summarizing",
+  DONE:         "done",
+  ERROR:        "error",
 };
 
+const TYPING_CPS = 60;
 
 export function useJob() {
-  const [jobId, setJobId] = useState(null);
-  const [stage, setStage] = useState(STAGES.IDLE);
-  const [language, setLanguage] = useState(null);
+  const [jobId,      setJobId]      = useState(null);
+  const [stage,      setStage]      = useState(STAGES.IDLE);
+  const [language,   setLanguage]   = useState(null);
   const [transcript, setTranscript] = useState("");
-  const [summary, setSummary] = useState("");
-  const [error, setError] = useState("");
+  const [summary,    setSummary]    = useState("");
+  const [error,      setError]      = useState("");
 
-  const esRef = useRef(null);
-  const pollRef = useRef(null);
+  const esRef       = useRef(null);
+  const pollRef     = useRef(null);
 
-  // Helpers
+  const fullTextRef = useRef("");
+  const queueRef    = useRef([]);
+  const typingRef   = useRef(null);
+
+  // Typing helpers
+
+  function stopTyping() {
+    if (typingRef.current) {
+      clearInterval(typingRef.current);
+      typingRef.current = null;
+    }
+  }
+
+  function typeNextSegment() {
+    if (typingRef.current || queueRef.current.length === 0) return;
+
+    const segment   = queueRef.current.shift();
+    const prefix    = fullTextRef.current ? fullTextRef.current + " " : "";
+    const fullSegment = prefix + segment;
+    let charIndex   = fullTextRef.current.length;
+
+    typingRef.current = setInterval(() => {
+      charIndex++;
+      setTranscript(fullSegment.slice(0, charIndex));
+
+      if (charIndex >= fullSegment.length) {
+        stopTyping();
+        fullTextRef.current = fullSegment;
+        typeNextSegment();
+      }
+    }, 1000 / TYPING_CPS);
+  }
+
+  function enqueueSegment(seg) {
+    queueRef.current.push(seg);
+    typeNextSegment();
+  }
+
+  function resetTyping() {
+    stopTyping();
+    queueRef.current  = [];
+    fullTextRef.current = "";
+  }
+
+  // Polling
 
   function stopPolling() {
     if (pollRef.current) {
@@ -44,6 +89,7 @@ export function useJob() {
         const data = await fetchJob(id);
         if (data.status === "transcribed" || data.status === "done") {
           stopPolling();
+          resetTyping();
           setTranscript(data.transcript ?? "");
           if (data.detected_language) setLanguage(data.detected_language);
           setStage(STAGES.TRANSCRIBED);
@@ -57,9 +103,14 @@ export function useJob() {
     }, 10_000);
   }
 
+  // Streaming
+
   function startStreaming(id, chunkIndex = 0) {
     setStage(STAGES.TRANSCRIBING);
-    if (chunkIndex === 0) setTranscript("");
+    if (chunkIndex === 0) {
+      resetTyping();
+      setTranscript("");
+    }
 
     const es = openTranscriptStream(id, chunkIndex);
     esRef.current = es;
@@ -67,8 +118,7 @@ export function useJob() {
     es.addEventListener("language", (e) => setLanguage(JSON.parse(e.data)));
 
     es.addEventListener("segment", (e) => {
-      const seg = JSON.parse(e.data);
-      setTranscript((prev) => (prev ? `${prev} ${seg}` : seg));
+      enqueueSegment(JSON.parse(e.data));
     });
 
     es.addEventListener("chunk_done", (e) => {
@@ -78,6 +128,7 @@ export function useJob() {
 
     es.addEventListener("done", (e) => {
       stopPolling();
+      resetTyping();
       setTranscript(JSON.parse(e.data));
       setStage(STAGES.TRANSCRIBED);
       es.close();
@@ -85,6 +136,7 @@ export function useJob() {
 
     es.addEventListener("error", (e) => {
       stopPolling();
+      resetTyping();
       setError(JSON.parse(e.data) ?? "Transcription failed.");
       setStage(STAGES.ERROR);
       es.close();
@@ -101,6 +153,7 @@ export function useJob() {
   function reset() {
     esRef.current?.close();
     stopPolling();
+    resetTyping();
     setJobId(null);
     setStage(STAGES.IDLE);
     setLanguage(null);
