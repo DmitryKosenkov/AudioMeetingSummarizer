@@ -110,6 +110,14 @@ h1 {
 }
 .hero-toggle:hover { color: #1a1a1a; }
 
+.hero-step-list {
+  margin: 6px 0 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
 .panel {
   border: 1px solid #ddd;
   border-radius: 8px;
