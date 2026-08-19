@@ -18,11 +18,11 @@ export function TranscriptPanel({
 
   const textBlockRef = useRef(null);
   useEffect(() => {
-    if (stage === STAGES.TRANSCRIBING && textBlockRef.current) {
+    if (textBlockRef.current) {
       const el = textBlockRef.current;
       el.scrollTop = el.scrollHeight;
     }
-  }, [transcript, stage]);
+  }, [transcript]);
 
   return (
     <div className="panel">

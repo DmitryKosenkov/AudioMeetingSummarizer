@@ -72,7 +72,7 @@ export function UploadPanel({ languages, onUpload, disabled, stage }) {
           onChange={handleFileChange}
           style={{ display: "none" }}
         />
-        <img src="/mic.svg" alt="" className="drop-zone-icon" />
+        <img src="/folder.svg" alt="" className="drop-zone-icon" />
         {file ? (
           <p className="drop-zone-filename">{file.name}</p>
         ) : (
