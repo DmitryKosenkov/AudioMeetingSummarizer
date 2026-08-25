@@ -3,7 +3,16 @@ const BASE = "/api";
 
 async function request(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, options);
-  if (!res.ok) throw new Error(`${options.method ?? "GET"} ${path} failed (${res.status})`);
+  if (!res.ok) {
+    let message;
+    try {
+      const body = await res.json();
+      message = body.detail ?? `Request failed (${res.status})`;
+    } catch {
+      message = `Request failed (${res.status})`;
+    }
+    throw new Error(message);
+  }
   return res.json();
 }
 
