@@ -42,7 +42,6 @@ export default function App() {
 
       {job.error && <p className="error">{job.error}</p>}
 
-      {job.jobId && <p className="meta">Job ID: {job.jobId}</p>}
       {job.language && <p className="meta">Detected language: {job.language}</p>}
 
       {job.stage === STAGES.TRANSCRIBING && (
