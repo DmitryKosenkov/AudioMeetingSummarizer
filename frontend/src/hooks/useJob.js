@@ -162,11 +162,11 @@ export function useJob() {
     setError("");
   }
 
-  async function upload(file, options) {
+  async function upload(files, options) {
     setError("");
     setStage(STAGES.UPLOADING);
     try {
-      const data = await uploadAudio(file, options);
+      const data = await uploadAudio(files, options);
       setJobId(data.job_id);
       startStreaming(data.job_id);
     } catch (err) {
