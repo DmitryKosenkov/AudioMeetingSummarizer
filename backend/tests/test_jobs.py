@@ -20,14 +20,14 @@ def parse_sse(body: str) -> list[tuple[str, object]]:
 
 def test_upload_rejects_unsupported_extension(client):
     response = client.post(
-        "/api/jobs", files={"file": ("virus.exe", b"not audio", "application/octet-stream")}
+        "/api/jobs", files=[("files", ("virus.exe", b"not audio", "application/octet-stream"))]
     )
     assert response.status_code == 400
 
 
 def test_upload_creates_queued_job(client):
     response = client.post(
-        "/api/jobs", files={"file": ("meeting.mp3", b"fake audio bytes", "audio/mpeg")}
+        "/api/jobs", files=[("files", ("meeting.mp3", b"fake audio bytes", "audio/mpeg"))]
     )
     assert response.status_code == 200
     body = response.json()
@@ -38,7 +38,7 @@ def test_upload_creates_queued_job(client):
 def test_upload_rejects_an_unsupported_language(client):
     response = client.post(
         "/api/jobs",
-        files={"file": ("meeting.mp3", b"fake audio bytes", "audio/mpeg")},
+        files=[("files", ("meeting.mp3", b"fake audio bytes", "audio/mpeg"))],
         data={"language": "not-a-real-code"},
     )
     assert response.status_code == 400
@@ -48,7 +48,7 @@ def test_upload_defaults_to_auto_detect_when_language_is_not_given(
     client, fake_transcriber
 ):
     upload = client.post(
-        "/api/jobs", files={"file": ("meeting.mp3", b"fake audio bytes", "audio/mpeg")}
+        "/api/jobs", files=[("files", ("meeting.mp3", b"fake audio bytes", "audio/mpeg"))]
     )
     job_id = upload.json()["job_id"]
 
@@ -62,7 +62,7 @@ def test_upload_forwards_an_explicit_language_choice_to_the_transcriber(
 ):
     upload = client.post(
         "/api/jobs",
-        files={"file": ("meeting.mp3", b"fake audio bytes", "audio/mpeg")},
+        files=[("files", ("meeting.mp3", b"fake audio bytes", "audio/mpeg"))],
         data={"language": "fr"},
     )
     job_id = upload.json()["job_id"]

@@ -1,12 +1,3 @@
-"""Audio utilities — currently just file splitting via ffmpeg.
-
-We split long files into fixed-length chunks before transcription so that
-each chunk finishes quickly enough to keep the SSE connection alive on
-Azure Container Apps (which recycles long-running connections).
-
-ffmpeg is already installed in the backend Docker image, so no extra Python
-dependency is needed.
-"""
 import logging
 import math
 import os
@@ -15,19 +6,13 @@ import tempfile
 
 logger = logging.getLogger(__name__)
 
-# Audio longer than this gets split.  Under this threshold we transcribe
-# the whole file in one shot.
+
 _SPLIT_THRESHOLD_SECONDS = 600  # 10 min
 
-# How long each split chunk should be.  Shorter → more chunks but each
-# finishes faster.  At ~1× real-time on the small Whisper model (CPU),
-# a 10-minute chunk takes roughly 10 minutes to transcribe — comfortably
-# under a 30-minute connection limit.
-_CHUNK_SECONDS = 600  # 10 min
+_CHUNK_SECONDS = 600
 
 
 def probe_duration(audio_path: str) -> float | None:
-    """Return the duration of *audio_path* in seconds, or None on error."""
     try:
         result = subprocess.run(
             [
@@ -52,14 +37,6 @@ def split_audio(
     chunk_seconds: int = _CHUNK_SECONDS,
     threshold_seconds: int = _SPLIT_THRESHOLD_SECONDS,
 ) -> list[str]:
-    """Split *audio_path* into fixed-length chunks if it is longer than
-    *threshold_seconds*.
-
-    Returns a list of file paths.  If the file is short enough, the list
-    contains only the original path and no splitting is done.  If splitting
-    is performed, the returned paths are new temporary files that the caller
-    is responsible for deleting.
-    """
     duration = probe_duration(audio_path)
     if duration is None or duration <= threshold_seconds:
         return [audio_path]
@@ -98,13 +75,43 @@ def split_audio(
             logger.info("Wrote chunk %d/%d → %s", i + 1, n_chunks, chunk_path)
     except subprocess.CalledProcessError as exc:
         logger.exception("ffmpeg failed while splitting %s", audio_path)
-        # Clean up any chunks already written and re-raise so the job fails
-        # cleanly rather than silently transcribing a partial file.
         for path in chunk_paths:
             _safe_unlink(path)
         raise RuntimeError("Audio splitting failed") from exc
 
     return chunk_paths
+
+
+def merge_audio_files(paths: list[str]) -> str:
+    if len(paths) == 1:
+        return paths[0]
+
+    fd, merged_path = tempfile.mkstemp(suffix=".mp3")
+    os.close(fd)
+
+    try:
+        cmd = ["ffmpeg", "-y"]
+        for p in paths:
+            cmd += ["-i", p]
+
+        n = len(paths)
+        filter_inputs = "".join(f"[{i}:a]" for i in range(n))
+        filter_complex = f"{filter_inputs}concat=n={n}:v=0:a=1[out]"
+
+        cmd += [
+            "-filter_complex", filter_complex,
+            "-map", "[out]",
+            "-ar", "16000",   # 16 kHz — matches Whisper's native sample rate
+            "-ac", "1",       # mono
+            merged_path,
+        ]
+
+        subprocess.run(cmd, capture_output=True, check=True)
+        logger.info("Merged %d files into %s", len(paths), merged_path)
+        return merged_path
+    except subprocess.CalledProcessError as exc:
+        _safe_unlink(merged_path)
+        raise RuntimeError("Audio merge failed") from exc
 
 
 def _safe_unlink(path: str) -> None:

@@ -12,19 +12,31 @@ const BEAM_OPTIONS = [
 const ACCEPT = ".mp3,.wav,.m4a,.ogg,.flac,.webm,.opus,.aac";
 
 export function UploadPanel({ languages, onUpload, disabled, stage }) {
-  const [file,           setFile]           = useState(null);
+  const [files,          setFiles]          = useState([]);
   const [beamSize,       setBeamSize]       = useState(2);
   const [languageChoice, setLanguageChoice] = useState(AUTO_DETECT);
   const [dragging,       setDragging]       = useState(false);
 
   const inputRef = useRef(null);
 
-  function applyFile(f) {
-    if (f) setFile(f);
+  function applyFiles(incoming) {
+    if (!incoming || incoming.length === 0) return;
+    // Merge with existing selection, deduplicating by name.
+    setFiles((prev) => {
+      const existing = new Set(prev.map((f) => f.name));
+      const added = Array.from(incoming).filter((f) => !existing.has(f.name));
+      return [...prev, ...added];
+    });
+  }
+
+  function removeFile(name) {
+    setFiles((prev) => prev.filter((f) => f.name !== name));
   }
 
   function handleFileChange(e) {
-    applyFile(e.target.files[0] ?? null);
+    applyFiles(e.target.files);
+    // Reset so the same file can be re-added after removal.
+    e.target.value = "";
   }
 
   function handleDragOver(e) {
@@ -40,15 +52,16 @@ export function UploadPanel({ languages, onUpload, disabled, stage }) {
     e.preventDefault();
     setDragging(false);
     if (disabled) return;
-    applyFile(e.dataTransfer.files[0] ?? null);
+    applyFiles(e.dataTransfer.files);
   }
 
   function handleUpload() {
-    if (!file) return;
-    onUpload(file, { beamSize, language: languageChoice });
+    if (files.length === 0) return;
+    onUpload(files, { beamSize, language: languageChoice });
   }
 
   const isUploading = stage === STAGES.UPLOADING;
+  const hasFiles = files.length > 0;
 
   return (
     <div className="panel">
@@ -62,28 +75,53 @@ export function UploadPanel({ languages, onUpload, disabled, stage }) {
         onDrop={handleDrop}
         role="button"
         tabIndex={disabled ? -1 : 0}
-        aria-label="Upload audio file"
+        aria-label="Upload audio files"
         onKeyDown={(e) => e.key === "Enter" && !disabled && inputRef.current?.click()}
       >
         <input
           ref={inputRef}
           type="file"
           accept={ACCEPT}
+          multiple
           onChange={handleFileChange}
           style={{ display: "none" }}
         />
         <img src="/folder.svg" alt="" className="drop-zone-icon" />
-        {file ? (
-          <p className="drop-zone-filename">{file.name}</p>
+        {hasFiles ? (
+          <p className="drop-zone-primary">
+            {files.length === 1 ? "1 file selected" : `${files.length} files selected`}
+          </p>
         ) : (
           <>
-            <p className="drop-zone-primary">Drop your audio file here</p>
+            <p className="drop-zone-primary">Drop your audio files here</p>
             <p className="drop-zone-secondary">
               or click to browse &middot; mp3, wav, m4a, ogg, flac, webm, opus, aac
             </p>
           </>
         )}
+        {hasFiles && (
+          <p className="drop-zone-secondary">Click to add more</p>
+        )}
       </div>
+
+      {/* File list */}
+      {hasFiles && (
+        <ul className="file-list">
+          {files.map((f) => (
+            <li key={f.name} className="file-list-item">
+              <span className="file-list-name">{f.name}</span>
+              <button
+                className="file-list-remove"
+                onClick={(e) => { e.stopPropagation(); removeFile(f.name); }}
+                disabled={disabled}
+                aria-label={`Remove ${f.name}`}
+              >
+                &times;
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <div className="beam-selector">
         <span className="beam-label">Transcription mode</span>
@@ -119,7 +157,7 @@ export function UploadPanel({ languages, onUpload, disabled, stage }) {
         </select>
       </div>
 
-      <button onClick={handleUpload} disabled={!file || disabled}>
+      <button onClick={handleUpload} disabled={!hasFiles || disabled}>
         {isUploading ? "Uploading…" : "Upload & Transcribe"}
       </button>
     </div>

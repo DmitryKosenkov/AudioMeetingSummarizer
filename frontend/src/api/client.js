@@ -32,9 +32,11 @@ export function fetchSummaryTypes() {
 
 // Jobs
 
-export function uploadAudio(file, { beamSize, language }) {
+export function uploadAudio(files, { beamSize, language }) {
   const form = new FormData();
-  form.append("file", file);
+  for (const file of files) {
+    form.append("files", file);
+  }
   form.append("beam_size", beamSize);
   form.append("language", language);
   return request("/jobs", { method: "POST", body: form });

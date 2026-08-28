@@ -90,7 +90,7 @@ def uploaded_job_id(client):
     """Uploads a small fake audio file and returns its job_id, QUEUED."""
     response = client.post(
         "/api/jobs",
-        files={"file": ("meeting.mp3", b"fake audio bytes", "audio/mpeg")},
+        files=[("files", ("meeting.mp3", b"fake audio bytes", "audio/mpeg"))],
         data={"beam_size": 2},
     )
     assert response.status_code == 200
