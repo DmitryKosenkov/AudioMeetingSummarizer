@@ -9,7 +9,7 @@ const BEAM_OPTIONS = [
   { value: 5, label: "Maximum accuracy", hint: "beam size 5" },
 ];
 
-const ACCEPT = ".mp3,.wav,.m4a,.ogg,.flac,.webm,.opus,.aac";
+const ACCEPT = ".mp3,.wav,.m4a,.ogg,.flac,.webm,.aac";
 
 export function UploadPanel({ languages, onUpload, disabled, stage }) {
   const [files,          setFiles]          = useState([]);
